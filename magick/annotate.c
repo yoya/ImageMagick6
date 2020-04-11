@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -195,57 +195,7 @@ MagickExport void AnnotateComponentTerminus(void)
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  AnnotateImage() annotates an image with text.  Optionally you can include
-%  any of the following bits of information about the image by embedding
-%  the appropriate special characters:
-%
-%    \n   newline
-%    \r   carriage return
-%    <    less-than character.
-%    >    greater-than character.
-%    &    ampersand character.
-%    %%   a percent sign
-%    %b   file size of image read in
-%    %c   comment meta-data property
-%    %d   directory component of path
-%    %e   filename extension or suffix
-%    %f   filename (including suffix)
-%    %g   layer canvas page geometry   (equivalent to "%Wx%H%X%Y")
-%    %h   current image height in pixels
-%    %i   image filename (note: becomes output filename for "info:")
-%    %k   CALCULATED: number of unique colors
-%    %l   label meta-data property
-%    %m   image file format (file magic)
-%    %n   number of images in current image sequence
-%    %o   output filename  (used for delegates)
-%    %p   index of image in current image list
-%    %q   quantum depth (compile-time constant)
-%    %r   image class and colorspace
-%    %s   scene number (from input unless re-assigned)
-%    %t   filename without directory or extension (suffix)
-%    %u   unique temporary filename (used for delegates)
-%    %w   current width in pixels
-%    %x   x resolution (density)
-%    %y   y resolution (density)
-%    %z   image depth (as read in unless modified, image save depth)
-%    %A   image transparency channel enabled (true/false)
-%    %C   image compression type
-%    %D   image GIF dispose method
-%    %G   original image size (%wx%h; before any resizes)
-%    %H   page (canvas) height
-%    %M   Magick filename (original file exactly as given,  including read mods)
-%    %O   page (canvas) offset ( = %X%Y )
-%    %P   page (canvas) size ( = %Wx%H )
-%    %Q   image compression quality ( 0 = default )
-%    %S   ?? scenes ??
-%    %T   image time delay (in centi-seconds)
-%    %U   image resolution units
-%    %W   page (canvas) width
-%    %X   page (canvas) x offset (including sign)
-%    %Y   page (canvas) y offset (including sign)
-%    %Z   unique filename (used for delegates)
-%    %@   CALCULATED: trim bounding box (without actually trimming)
-%    %#   CALCULATED: 'signature' hash of image values
+%  AnnotateImage() annotates an image with text.
 %
 %  The format of the AnnotateImage method is:
 %
@@ -262,7 +212,10 @@ MagickExport MagickBooleanType AnnotateImage(Image *image,
   const DrawInfo *draw_info)
 {
   char
+    *p,
+    color[MaxTextExtent],
     primitive[MaxTextExtent],
+    *text,
     **textlist;
 
   DrawInfo
@@ -275,6 +228,9 @@ MagickExport MagickBooleanType AnnotateImage(Image *image,
   MagickBooleanType
     status;
 
+  PixelPacket
+    pixel;
+
   PointInfo
     offset;
 
@@ -283,9 +239,6 @@ MagickExport MagickBooleanType AnnotateImage(Image *image,
 
   register ssize_t
     i;
-
-  size_t
-    length;
 
   TypeMetric
     metrics;
@@ -304,16 +257,41 @@ MagickExport MagickBooleanType AnnotateImage(Image *image,
     return(MagickFalse);
   if (*draw_info->text == '\0')
     return(MagickTrue);
-  textlist=StringToList(draw_info->text);
-  if (textlist == (char **) NULL)
-    return(MagickFalse);
-  length=strlen(textlist[0]);
-  for (i=1; textlist[i] != (char *) NULL; i++)
-    if (strlen(textlist[i]) > length)
-      length=strlen(textlist[i]);
-  number_lines=(size_t) i;
   annotate=CloneDrawInfo((ImageInfo *) NULL,draw_info);
+  text=annotate->text;
+  annotate->text=(char *) NULL;
   annotate_info=CloneDrawInfo((ImageInfo *) NULL,draw_info);
+  number_lines=1;
+  for (p=text; *p != '\0'; p++)
+    if (*p == '\n')
+      number_lines++;
+  textlist=(char **) AcquireQuantumMemory(number_lines+1,sizeof(*textlist));
+  if (textlist == (char **) NULL)
+    {
+      annotate_info=DestroyDrawInfo(annotate_info);
+      annotate=DestroyDrawInfo(annotate);
+      text=DestroyString(text);
+      return(MagickFalse);
+    }
+  p=text;
+  for (i=0; i < (ssize_t) number_lines; i++)
+  {
+    char
+      *q;
+
+    textlist[i]=p;
+    for (q=p; *q != '\0'; q++)
+      if ((*q == '\r') || (*q == '\n'))
+        break;
+    if (*q == '\r')
+      {
+        *q='\0';
+        q++;
+      }
+    *q='\0';
+    p=q+1;
+  }
+  textlist[i]=(char *) NULL;
   SetGeometry(image,&geometry);
   SetGeometryInfo(&geometry_info);
   if (annotate_info->geometry != (char *) NULL)
@@ -323,19 +301,29 @@ MagickExport MagickBooleanType AnnotateImage(Image *image,
       (void) ParseGeometry(annotate_info->geometry,&geometry_info);
     }
   if (SetImageStorageClass(image,DirectClass) == MagickFalse)
-    return(MagickFalse);
+    {
+      annotate_info=DestroyDrawInfo(annotate_info);
+      annotate=DestroyDrawInfo(annotate);
+      textlist=(char **) RelinquishMagickMemory(textlist);
+      text=DestroyString(text);
+      return(MagickFalse);
+    }
   if (IsGrayColorspace(image->colorspace) != MagickFalse)
     (void) SetImageColorspace(image,sRGBColorspace);
   status=MagickTrue;
+  (void) memset(&metrics,0,sizeof(metrics));
   for (i=0; textlist[i] != (char *) NULL; i++)
   {
+    if (*textlist[i] == '\0')
+      continue;
     /*
       Position text relative to image.
     */
     annotate_info->affine.tx=geometry_info.xi-image->page.x;
     annotate_info->affine.ty=geometry_info.psi-image->page.y;
     (void) CloneString(&annotate->text,textlist[i]);
-    (void) GetTypeMetrics(image,annotate,&metrics);
+    if ((metrics.width == 0) || (annotate->gravity != NorthWestGravity))
+      (void) GetTypeMetrics(image,annotate,&metrics);
     height=(ssize_t) (metrics.ascent-metrics.descent+
       draw_info->interline_spacing+0.5);
     switch (annotate->gravity)
@@ -498,33 +486,44 @@ MagickExport MagickBooleanType AnnotateImage(Image *image,
       }
     annotate_info->affine.tx=offset.x;
     annotate_info->affine.ty=offset.y;
-    (void) FormatLocaleString(primitive,MaxTextExtent,"stroke-width %g "
-      "line 0,0 %g,0",metrics.underline_thickness,metrics.width);
-    if (annotate->decorate == OverlineDecoration)
+    pixel=annotate_info->fill;
+    if (annotate_info->stroke.opacity != TransparentOpacity)
+      pixel=annotate_info->stroke;
+    (void) QueryColorname(image,&pixel,SVGCompliance,color,&image->exception);
+    (void) FormatLocaleString(primitive,MagickPathExtent,"stroke %s "
+      "stroke-width %g line 0,0 %g,0",color,(double)
+      metrics.underline_thickness,(double) metrics.width);
+    /*
+      Annotate image with text.
+    */
+    switch (annotate->decorate)
+    {
+      case OverlineDecoration:
       {
         annotate_info->affine.ty-=(draw_info->affine.sy*(metrics.ascent+
           metrics.descent-metrics.underline_position));
         (void) CloneString(&annotate_info->primitive,primitive);
         (void) DrawImage(image,annotate_info);
+        break;
       }
-    else
-      if (annotate->decorate == UnderlineDecoration)
-        {
-          annotate_info->affine.ty-=(draw_info->affine.sy*
-            metrics.underline_position);
-          (void) CloneString(&annotate_info->primitive,primitive);
-          (void) DrawImage(image,annotate_info);
-        }
-    /*
-      Annotate image with text.
-    */
+      case UnderlineDecoration:
+      {
+        annotate_info->affine.ty-=(draw_info->affine.sy*
+          metrics.underline_position);
+        (void) CloneString(&annotate_info->primitive,primitive);
+        (void) DrawImage(image,annotate_info);
+        break;
+      }
+      default:
+        break;
+    }
     status=RenderType(image,annotate,&offset,&metrics);
     if (status == MagickFalse)
       break;
     if (annotate->decorate == LineThroughDecoration)
       {
         annotate_info->affine.ty-=(draw_info->affine.sy*(height+
-          metrics.underline_position+metrics.descent)/2.0);
+          metrics.underline_position+metrics.descent*2)/2.0);
         (void) CloneString(&annotate_info->primitive,primitive);
         (void) DrawImage(image,annotate_info);
       }
@@ -534,9 +533,8 @@ MagickExport MagickBooleanType AnnotateImage(Image *image,
   */
   annotate_info=DestroyDrawInfo(annotate_info);
   annotate=DestroyDrawInfo(annotate);
-  for (i=0; textlist[i] != (char *) NULL; i++)
-    textlist[i]=DestroyString(textlist[i]);
   textlist=(char **) RelinquishMagickMemory(textlist);
+  text=DestroyString(text);
   return(status);
 }
 
@@ -576,7 +574,6 @@ MagickExport ssize_t FormatMagickCaption(Image *image,DrawInfo *draw_info,
   const MagickBooleanType split,TypeMetric *metrics,char **caption)
 {
   MagickBooleanType
-    digit,
     status;
 
   register char
@@ -593,18 +590,17 @@ MagickExport ssize_t FormatMagickCaption(Image *image,DrawInfo *draw_info,
   ssize_t
     n;
 
-  digit=MagickFalse;
-  width=0;
   q=draw_info->text;
   s=(char *) NULL;
   for (p=(*caption); GetUTFCode(p) != 0; p+=GetUTFOctets(p))
   {
-    if ((digit == MagickFalse) && (IsUTFSpace(GetUTFCode(p)) != MagickFalse))
+    if (IsUTFSpace(GetUTFCode(p)) != MagickFalse)
       s=p;
-    digit=((GetUTFCode(p) >= 0x0030) && (GetUTFCode(p) <= 0x0039)) ?
-      MagickTrue : MagickFalse;
     if (GetUTFCode(p) == '\n')
-      q=draw_info->text;
+      {
+        q=draw_info->text;
+        continue;
+      }
     for (i=0; i < (ssize_t) GetUTFOctets(p); i++)
       *q++=(*(p+i));
     *q='\0';
@@ -612,9 +608,9 @@ MagickExport ssize_t FormatMagickCaption(Image *image,DrawInfo *draw_info,
     if (status == MagickFalse)
       break;
     width=(size_t) floor(metrics->width+draw_info->stroke_width+0.5);
-    if ((width <= image->columns) || (s == (char *) NULL))
+    if (width <= image->columns)
       continue;
-    if ((s != (char *) NULL) && (GetUTFOctets(s) == 1))
+    if (s != (char *) NULL)
       {
         *s='\n';
         p=s;
@@ -622,67 +618,16 @@ MagickExport ssize_t FormatMagickCaption(Image *image,DrawInfo *draw_info,
     else
       if (split != MagickFalse)
         {
-          char
-            *target;
-
           /*
             No convenient line breaks-- insert newline.
           */
-          target=AcquireString(*caption);
           n=p-(*caption);
-          CopyMagickString(target,*caption,n+1);
-          ConcatenateMagickString(target,"\n",strlen(*caption)+1);
-          ConcatenateMagickString(target,p,strlen(*caption)+2);
-          (void) DestroyString(*caption);
-          *caption=target;
-          p=(*caption)+n;
-        }
-    q=draw_info->text;
-    s=(char *) NULL;
-  }
-  if (width > image->columns)
-    {
-      char
-        *text;
-
-      /*
-        No convenient break point, force one.
-      */
-      text=AcquireString(draw_info->text);
-      q=draw_info->text;
-      s=(char *) NULL;
-      for (p=(*caption); GetUTFCode(p) != 0; p+=GetUTFOctets(p))
-      {
-        if (IsUTFSpace(GetUTFCode(p)) != MagickFalse)
-          s=p;
-        if (GetUTFCode(p) == '\n')
-          q=draw_info->text;
-        for (i=0; i < (ssize_t) GetUTFOctets(p); i++)
-          *q++=(*(p+i));
-        *q='\0';
-        status=GetTypeMetrics(image,draw_info,metrics);
-        if (status == MagickFalse)
-          break;
-        width=(size_t) floor(metrics->width+draw_info->stroke_width+0.5);
-        if ((width <= image->columns) || (strcmp(text,draw_info->text) == 0))
-          continue;
-        (void) strcpy(text,draw_info->text);
-        if ((s != (char *) NULL) && (GetUTFOctets(s) == 1))
-          {
-            *s='\n';
-            p=s;
-          }
-        else
-          if ((s != (char *) NULL) || (split != MagickFalse))
+          if ((n > 0) && ((*caption)[n-1] != '\n'))
             {
               char
                 *target;
 
-              /*
-                No convenient line breaks-- insert newline.
-              */
               target=AcquireString(*caption);
-              n=p-(*caption);
               CopyMagickString(target,*caption,n+1);
               ConcatenateMagickString(target,"\n",strlen(*caption)+1);
               ConcatenateMagickString(target,p,strlen(*caption)+2);
@@ -690,11 +635,10 @@ MagickExport ssize_t FormatMagickCaption(Image *image,DrawInfo *draw_info,
               *caption=target;
               p=(*caption)+n;
             }
-        q=draw_info->text;
-        s=(char *) NULL;
-      }
-      text=DestroyString(text);
-    }
+        }
+    q=draw_info->text;
+    s=(char *) NULL;
+  }
   n=0;
   for (p=(*caption); GetUTFCode(p) != 0; p+=GetUTFOctets(p))
     if (GetUTFCode(p) == '\n')
@@ -755,14 +699,23 @@ MagickExport MagickBooleanType GetMultilineTypeMetrics(Image *image,
   char
     **textlist;
 
+  double
+    height;
+
   DrawInfo
     *annotate_info;
 
   MagickBooleanType
     status;
 
+  MagickSizeType
+    size;
+
   register ssize_t
     i;
+
+  size_t
+    count;
 
   TypeMetric
     extent;
@@ -781,7 +734,7 @@ MagickExport MagickBooleanType GetMultilineTypeMetrics(Image *image,
   /*
     Convert newlines to multiple lines of text.
   */
-  textlist=StringToList(draw_info->text);
+  textlist=StringToStrings(draw_info->text,&count);
   if (textlist == (char **) NULL)
     return(MagickFalse);
   annotate_info->render=MagickFalse;
@@ -794,21 +747,42 @@ MagickExport MagickBooleanType GetMultilineTypeMetrics(Image *image,
   annotate_info->text=textlist[0];
   status=GetTypeMetrics(image,annotate_info,&extent);
   *metrics=extent;
-  for (i=1; textlist[i] != (char *) NULL; i++)
-  {
-    annotate_info->text=textlist[i];
-    status=GetTypeMetrics(image,annotate_info,&extent);
-    if (extent.width > metrics->width)
-      *metrics=extent;
-  }
-  metrics->height=(double) (i*(size_t) (metrics->ascent-metrics->descent+0.5)+
-    (i-1)*draw_info->interline_spacing);
+  height=(count*(size_t) (metrics->ascent-metrics->descent+
+    0.5)+(count-1)*draw_info->interline_spacing);
+  size=(MagickSizeType) fabs(height);
+  if (AcquireMagickResource(HeightResource,size) == MagickFalse)
+    {
+      (void) ThrowMagickException(&image->exception,GetMagickModule(),
+        ImageError,"WidthOrHeightExceedsLimit","`%s'",image->filename);
+      status=MagickFalse;
+    }
+  else
+    {
+      for (i=1; i < (ssize_t) count; i++)
+      {
+        annotate_info->text=textlist[i];
+        status=GetTypeMetrics(image,annotate_info,&extent);
+        if (status == MagickFalse)
+          break;
+        if (extent.width > metrics->width)
+          *metrics=extent;
+        size=(MagickSizeType) fabs(extent.width);
+        if (AcquireMagickResource(WidthResource,size) == MagickFalse)
+          {
+            (void) ThrowMagickException(&image->exception,GetMagickModule(),
+              ImageError,"WidthOrHeightExceedsLimit","`%s'",image->filename);
+            status=MagickFalse;
+            break;
+          }
+      }
+      metrics->height=(double) height;
+    }
   /*
     Relinquish resources.
   */
   annotate_info->text=(char *) NULL;
   annotate_info=DestroyDrawInfo(annotate_info);
-  for (i=0; textlist[i] != (char *) NULL; i++)
+  for (i=0; i < (ssize_t) count; i++)
     textlist[i]=DestroyString(textlist[i]);
   textlist=(char **) RelinquishMagickMemory(textlist);
   return(status);
@@ -1168,6 +1142,7 @@ cleanup:
   /*
     Simple layout for bi-directional text (right-to-left or left-to-right).
   */
+  magick_unreferenced(image);
   *grapheme=(GraphemeInfo *) AcquireQuantumMemory(length+1,sizeof(**grapheme));
   if (*grapheme == (GraphemeInfo *) NULL)
     return(0);
@@ -1320,12 +1295,16 @@ static MagickBooleanType RenderFreetype(Image *image,const DrawInfo *draw_info,
   FT_Open_Args
     args;
 
+  FT_UInt
+    first_glyph_id,
+    last_glyph_id,
+    missing_glyph_id;
+
   FT_Vector
     origin;
 
   GlyphInfo
-    glyph,
-    last_glyph;
+    glyph;
 
   GraphemeInfo
     *grapheme;
@@ -1348,6 +1327,7 @@ static MagickBooleanType RenderFreetype(Image *image,const DrawInfo *draw_info,
 
   ssize_t
     code,
+    last_character,
     y;
 
   static FT_Outline_Funcs
@@ -1366,6 +1346,7 @@ static MagickBooleanType RenderFreetype(Image *image,const DrawInfo *draw_info,
   /*
     Initialize Truetype library.
   */
+  exception=(&image->exception);
   ft_status=FT_Init_FreeType(&library);
   if (ft_status != 0)
     ThrowBinaryException(TypeError,"UnableToInitializeFreetypeLibrary",
@@ -1380,7 +1361,6 @@ static MagickBooleanType RenderFreetype(Image *image,const DrawInfo *draw_info,
       args.pathname=ConstantString(draw_info->font+1);
   face=(FT_Face) NULL;
   ft_status=FT_Open_Face(library,&args,(long) draw_info->face,&face);
-  exception=(&image->exception);
   if (ft_status != 0)
     {
       (void) FT_Done_FreeType(library);
@@ -1393,42 +1373,48 @@ static MagickBooleanType RenderFreetype(Image *image,const DrawInfo *draw_info,
   if ((draw_info->metrics != (char *) NULL) &&
       (IsPathAccessible(draw_info->metrics) != MagickFalse))
     (void) FT_Attach_File(face,draw_info->metrics);
-  encoding_type=ft_encoding_unicode;
+  encoding_type=FT_ENCODING_UNICODE;
   ft_status=FT_Select_Charmap(face,encoding_type);
   if ((ft_status != 0) && (face->num_charmaps != 0))
     ft_status=FT_Set_Charmap(face,face->charmaps[0]);
   if (encoding != (const char *) NULL)
     {
       if (LocaleCompare(encoding,"AdobeCustom") == 0)
-        encoding_type=ft_encoding_adobe_custom;
+        encoding_type=FT_ENCODING_ADOBE_CUSTOM;
       if (LocaleCompare(encoding,"AdobeExpert") == 0)
-        encoding_type=ft_encoding_adobe_expert;
+        encoding_type=FT_ENCODING_ADOBE_EXPERT;
       if (LocaleCompare(encoding,"AdobeStandard") == 0)
-        encoding_type=ft_encoding_adobe_standard;
+        encoding_type=FT_ENCODING_ADOBE_STANDARD;
       if (LocaleCompare(encoding,"AppleRoman") == 0)
-        encoding_type=ft_encoding_apple_roman;
+        encoding_type=FT_ENCODING_APPLE_ROMAN;
       if (LocaleCompare(encoding,"BIG5") == 0)
-        encoding_type=ft_encoding_big5;
+        encoding_type=FT_ENCODING_BIG5;
+#if defined(FT_ENCODING_PRC)
       if (LocaleCompare(encoding,"GB2312") == 0)
-        encoding_type=ft_encoding_gb2312;
-      if (LocaleCompare(encoding,"Johab") == 0)
-        encoding_type=ft_encoding_johab;
-#if defined(ft_encoding_latin_1)
-      if (LocaleCompare(encoding,"Latin-1") == 0)
-        encoding_type=ft_encoding_latin_1;
+        encoding_type=FT_ENCODING_PRC;
 #endif
+#if defined(FT_ENCODING_JOHAB)
+      if (LocaleCompare(encoding,"Johab") == 0)
+        encoding_type=FT_ENCODING_JOHAB;
+#endif
+#if defined(FT_ENCODING_ADOBE_LATIN_1)
+      if (LocaleCompare(encoding,"Latin-1") == 0)
+        encoding_type=FT_ENCODING_ADOBE_LATIN_1;
+#endif
+#if defined(FT_ENCODING_ADOBE_LATIN_2)
       if (LocaleCompare(encoding,"Latin-2") == 0)
-        encoding_type=ft_encoding_latin_2;
+        encoding_type=FT_ENCODING_OLD_LATIN_2;
+#endif
       if (LocaleCompare(encoding,"None") == 0)
-        encoding_type=ft_encoding_none;
+        encoding_type=FT_ENCODING_NONE;
       if (LocaleCompare(encoding,"SJIScode") == 0)
-        encoding_type=ft_encoding_sjis;
+        encoding_type=FT_ENCODING_SJIS;
       if (LocaleCompare(encoding,"Symbol") == 0)
-        encoding_type=ft_encoding_symbol;
+        encoding_type=FT_ENCODING_MS_SYMBOL;
       if (LocaleCompare(encoding,"Unicode") == 0)
-        encoding_type=ft_encoding_unicode;
+        encoding_type=FT_ENCODING_UNICODE;
       if (LocaleCompare(encoding,"Wansung") == 0)
-        encoding_type=ft_encoding_wansung;
+        encoding_type=FT_ENCODING_WANSUNG;
       ft_status=FT_Select_Charmap(face,encoding_type);
       if (ft_status != 0)
         {
@@ -1480,9 +1466,14 @@ static MagickBooleanType RenderFreetype(Image *image,const DrawInfo *draw_info,
   metrics->bounds.y1=metrics->descent;
   metrics->bounds.x2=metrics->ascent+metrics->descent;
   metrics->bounds.y2=metrics->ascent+metrics->descent;
-  metrics->underline_position=face->underline_position/64.0;
-  metrics->underline_thickness=face->underline_thickness/64.0;
-  if ((draw_info->text == (char *) NULL) || (*draw_info->text == '\0'))
+  metrics->underline_position=face->underline_position*
+    (metrics->pixels_per_em.x/face->units_per_EM);
+  metrics->underline_thickness=face->underline_thickness*
+    (metrics->pixels_per_em.x/face->units_per_EM);
+  first_glyph_id=0;
+  FT_Get_First_Char(face,&first_glyph_id);
+  if ((draw_info->text == (char *) NULL) || (*draw_info->text == '\0') ||
+      (first_glyph_id == 0))
     {
       (void) FT_Done_Face(face);
       (void) FT_Done_FreeType(library);
@@ -1502,7 +1493,7 @@ static MagickBooleanType RenderFreetype(Image *image,const DrawInfo *draw_info,
   if (draw_info->render == MagickFalse)
     flags=FT_LOAD_NO_BITMAP;
   if (draw_info->text_antialias == MagickFalse)
-    flags|=FT_LOAD_TARGET_MONO;
+    flags|=FT_LOAD_RENDER | FT_LOAD_TARGET_MONO;
   else
     {
 #if defined(FT_LOAD_TARGET_LIGHT)
@@ -1515,9 +1506,8 @@ static MagickBooleanType RenderFreetype(Image *image,const DrawInfo *draw_info,
   if ((value != (const char *) NULL) && (LocaleCompare(value,"off") == 0))
     flags|=FT_LOAD_NO_HINTING;
   glyph.id=0;
-  glyph.image=NULL;
-  last_glyph.id=0;
-  last_glyph.image=NULL;
+  glyph.image=(FT_Glyph) NULL;
+  last_glyph_id=0;
   origin.x=0;
   origin.y=0;
   affine.xx=65536L;
@@ -1559,28 +1549,38 @@ static MagickBooleanType RenderFreetype(Image *image,const DrawInfo *draw_info,
     }
   grapheme=(GraphemeInfo *) NULL;
   length=ComplexTextLayout(image,draw_info,p,strlen(p),face,flags,&grapheme);
+  missing_glyph_id=FT_Get_Char_Index(face,' ');
   code=0;
+  last_character=(ssize_t) length-1;
   for (i=0; i < (ssize_t) length; i++)
   {
+    FT_Outline
+      outline;
+
     /*
       Render UTF-8 sequence.
     */
     glyph.id=grapheme[i].index;
     if (glyph.id == 0)
-      glyph.id=FT_Get_Char_Index(face,'?');
-    if ((glyph.id != 0) && (last_glyph.id != 0))
+      glyph.id=missing_glyph_id;
+    if ((glyph.id != 0) && (last_glyph_id != 0))
       origin.x+=(FT_Pos) (64.0*draw_info->kerning);
     glyph.origin=origin;
     glyph.origin.x+=grapheme[i].x_offset;
     glyph.origin.y+=grapheme[i].y_offset;
+    if (glyph.image != (FT_Glyph) NULL)
+      {
+        FT_Done_Glyph(glyph.image);
+        glyph.image=(FT_Glyph) NULL;
+      }
     ft_status=FT_Load_Glyph(face,glyph.id,flags);
     if (ft_status != 0)
       continue;
     ft_status=FT_Get_Glyph(face->glyph,&glyph.image);
     if (ft_status != 0)
       continue;
-    ft_status=FT_Outline_Get_BBox(&((FT_OutlineGlyph) glyph.image)->outline,
-      &bounds);
+    outline=((FT_OutlineGlyph) glyph.image)->outline;
+    ft_status=FT_Outline_Get_BBox(&outline,&bounds);
     if (ft_status != 0)
       continue;
     if ((p == draw_info->text) || (bounds.xMin < metrics->bounds.x1))
@@ -1604,8 +1604,9 @@ static MagickBooleanType RenderFreetype(Image *image,const DrawInfo *draw_info,
         */
         annotate_info->affine.tx=glyph.origin.x/64.0;
         annotate_info->affine.ty=(-glyph.origin.y/64.0);
-        (void) FT_Outline_Decompose(&((FT_OutlineGlyph) glyph.image)->outline,
-          &OutlineMethods,annotate_info);
+        if ((outline.n_contours > 0) && (outline.n_points > 0))
+          ft_status=FT_Outline_Decompose(&outline,&OutlineMethods,
+            annotate_info);
       }
     FT_Vector_Transform(&glyph.origin,&affine);
     (void) FT_Glyph_Transform(glyph.image,&affine,&glyph.origin);
@@ -1688,11 +1689,13 @@ static MagickBooleanType RenderFreetype(Image *image,const DrawInfo *draw_info,
                   q++;
                 continue;
               }
-            if (bitmap->bitmap.pixel_mode != ft_pixel_mode_mono)
+            fill_opacity=1.0;
+            if (bitmap->bitmap.pixel_mode == ft_pixel_mode_grays)
               fill_opacity=(MagickRealType) (p[n])/(bitmap->bitmap.num_grays-1);
             else
-              fill_opacity=((p[(x >> 3)+y*bitmap->bitmap.pitch] &
-                (1 << (~x & 0x07)))) == 0 ? 0.0 : 1.0;
+              if (bitmap->bitmap.pixel_mode == ft_pixel_mode_mono)
+                fill_opacity=((p[(x >> 3)+y*bitmap->bitmap.pitch] &
+                  (1 << (~x & 0x07)))) == 0 ? 0.0 : 1.0;
             if (draw_info->text_antialias == MagickFalse)
               fill_opacity=fill_opacity >= 0.5 ? 1.0 : 0.0;
             if (active == MagickFalse)
@@ -1712,7 +1715,7 @@ static MagickBooleanType RenderFreetype(Image *image,const DrawInfo *draw_info,
                 double
                   Sa,
                   Da;
-                
+
                 Da=1.0-(QuantumScale*(QuantumRange-q->opacity));
                 Sa=fill_opacity;
                 fill_opacity=(1.0-RoundToUnity(Sa+Da-Sa*Da))*QuantumRange;
@@ -1751,23 +1754,31 @@ static MagickBooleanType RenderFreetype(Image *image,const DrawInfo *draw_info,
         (IsUTFSpace(GetUTFCode(p+grapheme[i].cluster)) != MagickFalse) &&
         (IsUTFSpace(code) == MagickFalse))
       origin.x+=(FT_Pos) (64.0*draw_info->interword_spacing);
+    else if (i == last_character)
+      {
+        if (bounds.xMax == 0)
+          origin.x+=(FT_Pos) grapheme[i].x_advance;
+        else
+          origin.x+=(FT_Pos) bounds.xMax;
+      }
     else
       origin.x+=(FT_Pos) grapheme[i].x_advance;
     metrics->origin.x=(double) origin.x;
     metrics->origin.y=(double) origin.y;
     if (metrics->origin.x > metrics->width)
       metrics->width=metrics->origin.x;
-    if (last_glyph.id != 0)
-      FT_Done_Glyph(last_glyph.image);
-    last_glyph=glyph;
+    last_glyph_id=glyph.id;
     code=GetUTFCode(p+grapheme[i].cluster);
   }
   if (grapheme != (GraphemeInfo *) NULL)
     grapheme=(GraphemeInfo *) RelinquishMagickMemory(grapheme);
   if (utf8 != (unsigned char *) NULL)
     utf8=(unsigned char *) RelinquishMagickMemory(utf8);
-  if (last_glyph.id != 0)
-    FT_Done_Glyph(last_glyph.image);
+  if (glyph.image != (FT_Glyph) NULL)
+    {
+      FT_Done_Glyph(glyph.image);
+      glyph.image=(FT_Glyph) NULL;
+    }
   /*
     Determine font metrics.
   */

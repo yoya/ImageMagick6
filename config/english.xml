@@ -324,14 +324,14 @@
           <message name="UnrecognizedAlphaChannelType">
             unrecognized alpha channel tpe
           </message>
-          <message name="UnrecognizedBitsPerPixel">
-            unrecognized bits per pixel
-          </message>
           <message name="UnrecognizedImageCompression">
             unrecognized compression
           </message>
           <message name="UnrecognizedNumberOfColors">
             unrecognized number of colors
+          </message>
+          <message name="UnsupportedBitsPerPixel">
+            unsupported bits per pixel
           </message>
         </error>
         <fatalerror>
@@ -463,6 +463,9 @@
         <message name="URLNotFound">
           URL not found
         </message>
+        <message name="VectorGraphicsNestedTooDeeply">
+          vector graphics nested too deeply
+        </message>
       </error>
     </draw>
     <file>
@@ -537,6 +540,9 @@
       <warning>
         <message name="AssociateProfile">
           associate profile with image, a source and destination color profile required for transform
+        </message>
+        <message name="UnableToTransformColorspace">
+          unable to transform colorspace
         </message>
       </warning>
     </image>
@@ -627,6 +633,9 @@
         </message>
         <message name="ImagePagesAreNotCoalesced">
           image pages are not coalesced
+        </message>
+        <message name="ImageSequenceRequired">
+          image sequence is required
         </message>
         <message name="ImageSizeMustExceedBevelWidth">
           size must exceed bevel width
@@ -723,6 +732,9 @@
         </message>
         <message name="UnbalancedParenthesis">
           unbalanced parenthesis
+        </message>
+        <message name="UndefinedVariable">
+          undefined variable
         </message>
         <message name="UnrecognizedAttribute">
           unrecognized attribute
@@ -931,7 +943,7 @@
     <policy>
       <error>
         <message name="NotAuthorized">
-          not authorized
+          attempt to perform an operation not allowed by the security policy
         </message>
       </error>
     </policy>

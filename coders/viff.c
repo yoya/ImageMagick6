@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -330,6 +330,13 @@ static Image *ReadVIFFImage(const ImageInfo *image_info,
       (void) ReadBlobByte(image);
     if (EOFBlob(image) != MagickFalse)
       ThrowReaderException(CorruptImageError,"UnexpectedEndOfFile");
+    number_pixels=(MagickSizeType) viff_info.columns*viff_info.rows;
+    if (number_pixels != (size_t) number_pixels)
+      ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
+    if (number_pixels > GetBlobSize(image))
+      ThrowReaderException(CorruptImageError,"InsufficientImageDataInFile");
+    if (number_pixels == 0)
+      ThrowReaderException(CoderError,"ImageColumnOrRowSizeIsNotSupported");
     image->columns=viff_info.rows;
     image->rows=viff_info.columns;
     image->depth=viff_info.x_bits_per_pixel <= 8 ? 8UL :
@@ -345,11 +352,6 @@ static Image *ReadVIFFImage(const ImageInfo *image_info,
     /*
       Verify that we can read this VIFF image.
     */
-    number_pixels=(MagickSizeType) viff_info.columns*viff_info.rows;
-    if (number_pixels != (size_t) number_pixels)
-      ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
-    if (number_pixels == 0)
-      ThrowReaderException(CoderError,"ImageColumnOrRowSizeIsNotSupported");
     if ((viff_info.number_data_bands < 1) || (viff_info.number_data_bands > 4))
       ThrowReaderException(CorruptImageError,"ImproperImageHeader");
     if ((viff_info.data_storage_type != VFF_TYP_BIT) &&
@@ -772,8 +774,8 @@ static Image *ReadVIFFImage(const ImageInfo *image_info,
         AcquireNextImage(image_info,image);
         if (GetNextImageInList(image) == (Image *) NULL)
           {
-            image=DestroyImageList(image);
-            return((Image *) NULL);
+            status=MagickFalse;
+            break;
           }
         image=SyncNextImageInList(image);
         status=SetImageProgress(image,LoadImagesTag,TellBlob(image),
@@ -783,6 +785,8 @@ static Image *ReadVIFFImage(const ImageInfo *image_info,
       }
   } while ((count != 0) && (viff_info.identifier == 0xab));
   (void) CloseBlob(image);
+  if (status == MagickFalse)
+    return(DestroyImageList(image));
   return(GetFirstImageInList(image));
 }
 
@@ -820,14 +824,14 @@ ModuleExport size_t RegisterVIFFImage(void)
   entry->magick=(IsImageFormatHandler *) IsVIFF;
   entry->seekable_stream=MagickTrue;
   entry->description=ConstantString("Khoros Visualization image");
-  entry->module=ConstantString("VIFF");
+  entry->magick_module=ConstantString("VIFF");
   (void) RegisterMagickInfo(entry);
   entry=SetMagickInfo("XV");
   entry->decoder=(DecodeImageHandler *) ReadVIFFImage;
   entry->encoder=(EncodeImageHandler *) WriteVIFFImage;
   entry->seekable_stream=MagickTrue;
   entry->description=ConstantString("Khoros Visualization image");
-  entry->module=ConstantString("VIFF");
+  entry->magick_module=ConstantString("VIFF");
   (void) RegisterMagickInfo(entry);
   return(MagickImageCoderSignature);
 }

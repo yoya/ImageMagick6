@@ -17,13 +17,13 @@
 %                                 April 2000                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -185,6 +185,8 @@ static Image *ReadMVGImage(const ImageInfo *image_info,ExceptionInfo *exception)
   if ((image->columns == 0) || (image->rows == 0))
     ThrowReaderException(OptionError,"MustSpecifyImageSize");
   draw_info=CloneDrawInfo(image_info,(DrawInfo *) NULL);
+  if (draw_info->density != (char *) NULL)
+    draw_info->density=DestroyString(draw_info->density);
   draw_info->affine.sx=image->x_resolution == 0.0 ? 1.0 : image->x_resolution/
     96.0;
   draw_info->affine.sy=image->y_resolution == 0.0 ? 1.0 : image->y_resolution/
@@ -212,18 +214,34 @@ static Image *ReadMVGImage(const ImageInfo *image_info,ExceptionInfo *exception)
     draw_info->primitive=FileToString(image->filename,~0UL,exception);
   else
     {
-      draw_info->primitive=(char *) AcquireMagickMemory(GetBlobSize(image)+1);
-      if (draw_info->primitive != (char *) NULL)
+      MagickSizeType
+        length;
+
+      length=GetBlobSize(image);
+      if (length == (MagickSizeType) ((size_t) length))
         {
-          memcpy(draw_info->primitive,GetBlobStreamData(image),
-            GetBlobSize(image));
-          draw_info->primitive[GetBlobSize(image)]='\0';
-        }
+          draw_info->primitive=(char *) AcquireMagickMemory((size_t) length+1);
+          if (draw_info->primitive != (char *) NULL)
+            {
+              memcpy(draw_info->primitive,GetBlobStreamData(image),(size_t)
+                length);
+              draw_info->primitive[length]='\0';
+            }
+         }
      }
   if (draw_info->primitive == (char *) NULL)
-    ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
+    {
+      draw_info=DestroyDrawInfo(draw_info);
+      InheritException(exception,&image->exception);
+      return(DestroyImageList(image));
+    }
+  if (*draw_info->primitive == '@')
+    {
+      draw_info=DestroyDrawInfo(draw_info);
+      ThrowReaderException(CorruptImageError,"ImproperImageHeader");
+    }
   (void) DrawImage(image,draw_info);
-  (void) SetImageArtifact(image,"MVG",draw_info->primitive);
+  (void) SetImageArtifact(image,"mvg:vector-graphics",draw_info->primitive);
   draw_info=DestroyDrawInfo(draw_info);
   (void) CloseBlob(image);
   return(GetFirstImageInList(image));
@@ -265,7 +283,7 @@ ModuleExport size_t RegisterMVGImage(void)
   entry->seekable_stream=MagickTrue;
   entry->format_type=ImplicitFormatType;
   entry->description=ConstantString("Magick Vector Graphics");
-  entry->module=ConstantString("MVG");
+  entry->magick_module=ConstantString("MVG");
   (void) RegisterMagickInfo(entry);
   return(MagickImageCoderSignature);
 }
@@ -335,7 +353,7 @@ static MagickBooleanType WriteMVGImage(const ImageInfo *image_info,Image *image)
   assert(image->signature == MagickCoreSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  value=GetImageArtifact(image,"MVG");
+  value=GetImageArtifact(image,"mvg:vector-graphics");
   if (value == (const char *) NULL)
     ThrowWriterException(OptionError,"NoImageVectorGraphics");
   status=OpenBlob(image_info,image,WriteBlobMode,&image->exception);

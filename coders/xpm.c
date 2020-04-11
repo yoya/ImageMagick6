@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -71,6 +71,12 @@
 #include "magick/module.h"
 #include "magick/threshold.h"
 #include "magick/utility.h"
+
+/*
+  Global declarations.
+*/
+static SplayTreeInfo
+  *xpm_symbolic = (SplayTreeInfo *) NULL;
 
 /*
   Forward declarations.
@@ -174,6 +180,9 @@ static char *NextXPMLine(char *p)
   return(p);
 }
 
+static char *ParseXPMColor(char *,MagickBooleanType)
+  magick_attribute((__pure__));
+
 static char *ParseXPMColor(char *color,MagickBooleanType search_start)
 {
 #define NumberTargets  6
@@ -257,11 +266,11 @@ static Image *ReadXPMImage(const ImageInfo *image_info,ExceptionInfo *exception)
   register IndexPacket
     *indexes;
 
-  register ssize_t
-    x;
-
   register PixelPacket
     *r;
+
+  register ssize_t
+    x;
 
   size_t
     length;
@@ -363,6 +372,11 @@ static Image *ReadXPMImage(const ImageInfo *image_info,ExceptionInfo *exception)
       *q++=(*p);
   }
   *q='\0';
+  if (active != MagickFalse)
+    {
+      xpm_buffer=DestroyString(xpm_buffer);
+      ThrowReaderException(CorruptImageError,"UnexpectedEndOfFile");
+    }
   /*
     Initialize image structure.
   */
@@ -381,6 +395,9 @@ static Image *ReadXPMImage(const ImageInfo *image_info,ExceptionInfo *exception)
   next=NextXPMLine(xpm_buffer);
   for (j=0; (j < (ssize_t) image->colors) && (next != (char *) NULL); j++)
   {
+    char
+      symbolic[MagickPathExtent];
+
     MagickPixelPacket
       pixel;
 
@@ -389,7 +406,7 @@ static Image *ReadXPMImage(const ImageInfo *image_info,ExceptionInfo *exception)
     if (next == (char *) NULL)
       break;
     length=MagickMin((size_t) width,MagickPathExtent-1);
-    if (CopyXPMColor(key,p,length) != length)
+    if (CopyXPMColor(key,p,length) != (ssize_t) length)
       break;
     status=AddValueToSplayTree(xpm_colors,ConstantString(key),(void *) j);
     /*
@@ -399,6 +416,7 @@ static Image *ReadXPMImage(const ImageInfo *image_info,ExceptionInfo *exception)
     q=(char *) NULL;
     if (strlen(p) > width)
       q=ParseXPMColor(p+width,MagickTrue);
+    *symbolic='\0';
     if (q != (char *) NULL)
       {
         while ((isspace((int) ((unsigned char) *q)) == 0) && (*q != '\0'))
@@ -411,10 +429,15 @@ static Image *ReadXPMImage(const ImageInfo *image_info,ExceptionInfo *exception)
         else
           (void) CopyMagickString(target,q,MaxTextExtent);
         q=ParseXPMColor(target,MagickFalse);
+        (void) CopyXPMColor(symbolic,q,MagickMin((size_t) (next-q),
+          MagickPathExtent-1));
         if (q != (char *) NULL)
           *q='\0';
       }
     StripString(target);
+    if (*symbolic != '\0')
+      (void) AddValueToSplayTree(xpm_symbolic,ConstantString(target),
+        ConstantString(symbolic));
     grey=strstr(target,"grey");
     if (grey != (char *) NULL)
       grey[2]='a';
@@ -462,7 +485,10 @@ static Image *ReadXPMImage(const ImageInfo *image_info,ExceptionInfo *exception)
         indexes=GetAuthenticIndexQueue(image);
         for (x=0; x < (ssize_t) image->columns; x++)
         {
-          ssize_t count=CopyXPMColor(key,p,MagickMin(width,MaxTextExtent-1));
+          ssize_t
+            count;
+
+          count=CopyXPMColor(key,p,MagickMin(width,MaxTextExtent-1));
           if (count != (ssize_t) width)
             break;
           j=(ssize_t) GetValueFromSplayTree(xpm_colors,key);
@@ -521,12 +547,15 @@ ModuleExport size_t RegisterXPMImage(void)
   MagickInfo
     *entry;
 
+  if (xpm_symbolic == (SplayTreeInfo *) NULL)
+    xpm_symbolic=NewSplayTree(CompareSplayTreeString,RelinquishMagickMemory,
+      RelinquishMagickMemory);
   entry=SetMagickInfo("PICON");
   entry->decoder=(DecodeImageHandler *) ReadXPMImage;
   entry->encoder=(EncodeImageHandler *) WritePICONImage;
   entry->adjoin=MagickFalse;
   entry->description=ConstantString("Personal Icon");
-  entry->module=ConstantString("XPM");
+  entry->magick_module=ConstantString("XPM");
   (void) RegisterMagickInfo(entry);
   entry=SetMagickInfo("PM");
   entry->decoder=(DecodeImageHandler *) ReadXPMImage;
@@ -534,7 +563,7 @@ ModuleExport size_t RegisterXPMImage(void)
   entry->adjoin=MagickFalse;
   entry->stealth=MagickTrue;
   entry->description=ConstantString("X Windows system pixmap (color)");
-  entry->module=ConstantString("XPM");
+  entry->magick_module=ConstantString("XPM");
   (void) RegisterMagickInfo(entry);
   entry=SetMagickInfo("XPM");
   entry->decoder=(DecodeImageHandler *) ReadXPMImage;
@@ -542,7 +571,7 @@ ModuleExport size_t RegisterXPMImage(void)
   entry->magick=(IsImageFormatHandler *) IsXPM;
   entry->adjoin=MagickFalse;
   entry->description=ConstantString("X Windows system pixmap (color)");
-  entry->module=ConstantString("XPM");
+  entry->magick_module=ConstantString("XPM");
   (void) RegisterMagickInfo(entry);
   return(MagickImageCoderSignature);
 }
@@ -571,6 +600,8 @@ ModuleExport void UnregisterXPMImage(void)
   (void) UnregisterMagickInfo("PICON");
   (void) UnregisterMagickInfo("PM");
   (void) UnregisterMagickInfo("XPM");
+  if (xpm_symbolic != (SplayTreeInfo *) NULL)
+    xpm_symbolic=DestroySplayTree(xpm_symbolic);
 }
 
 /*
@@ -780,6 +811,10 @@ static MagickBooleanType WritePICONImage(const ImageInfo *image_info,
         picon->colormap,(size_t) colors,sizeof(*picon->colormap));
       if (picon->colormap == (PixelPacket *) NULL)
         ThrowWriterException(ResourceLimitError,"MemoryAllocationError");
+      picon->colormap[colors-1].red=0;
+      picon->colormap[colors-1].green=0;
+      picon->colormap[colors-1].blue=0;
+      picon->colormap[colors-1].opacity=TransparentOpacity;
       for (y=0; y < (ssize_t) picon->rows; y++)
       {
         q=GetAuthenticPixels(picon,0,y,picon->columns,1,exception);
@@ -818,6 +853,9 @@ static MagickBooleanType WritePICONImage(const ImageInfo *image_info,
   GetMagickPixelPacket(image,&pixel);
   for (i=0; i < (ssize_t) colors; i++)
   {
+    const char
+      *symbolic;
+
     /*
       Define XPM color.
     */
@@ -843,8 +881,13 @@ static MagickBooleanType WritePICONImage(const ImageInfo *image_info,
       symbol[j]=Cixel[k];
     }
     symbol[j]='\0';
-    (void) FormatLocaleString(buffer,MaxTextExtent,"\"%.1024s c %.1024s\",\n",
-      symbol,name);
+    symbolic=(const char *) GetValueFromSplayTree(xpm_symbolic,name);
+    if (symbolic == (const char *) NULL)
+      (void) FormatLocaleString(buffer,MaxTextExtent,"\"%.1024s c %.1024s\",\n",
+        symbol,name);
+    else
+      (void) FormatLocaleString(buffer,MaxTextExtent,
+        "\"%.1024s c %.1024s %.1024s\",\n",symbol,name,symbolic);
     (void) WriteBlobString(image,buffer);
   }
   /*

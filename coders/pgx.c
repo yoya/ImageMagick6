@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -137,9 +137,6 @@ static Image *ReadPGXImage(const ImageInfo *image_info,ExceptionInfo *exception)
     sans[MaxTextExtent],
     sign[MaxTextExtent];
 
-  const unsigned char
-    *pixels;
-
   Image
     *image;
 
@@ -160,6 +157,9 @@ static Image *ReadPGXImage(const ImageInfo *image_info,ExceptionInfo *exception)
   ssize_t
     count,
     y;
+
+  unsigned char
+    *pixels;
 
   /*
     Open image file.
@@ -207,20 +207,23 @@ static Image *ReadPGXImage(const ImageInfo *image_info,ExceptionInfo *exception)
   if (quantum_info == (QuantumInfo *) NULL)
     ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
   length=GetQuantumExtent(image,quantum_info,GrayQuantum);
+  pixels=GetQuantumPixels(quantum_info);
   for (y=0; y < (ssize_t) image->rows; y++)
   {
+    const void
+      *stream;
+
     register PixelPacket
       *magick_restrict q;
 
     q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
     if (q == (PixelPacket *) NULL)
       break;
-    pixels=(const unsigned char *) ReadBlobStream(image,length,
-      GetQuantumPixels(quantum_info),&count);
+    stream=ReadBlobStream(image,length,pixels,&count);
     if (count != (ssize_t) length)
       break;
     (void) ImportQuantumPixels(image,(CacheView *) NULL,quantum_info,
-      GrayQuantum,pixels,exception);
+      GrayQuantum,(unsigned char *) stream,exception);
     if (SyncAuthenticPixels(image,exception) == MagickFalse)
       break;
     if (SetImageProgress(image,LoadImageTag,(MagickOffsetType) y,image->rows) == MagickFalse)
@@ -269,7 +272,7 @@ ModuleExport size_t RegisterPGXImage(void)
   entry->magick=(IsImageFormatHandler *) IsPGX;
   entry->adjoin=MagickFalse;
   entry->description=ConstantString("JPEG 2000 uncompressed format");
-  entry->module=ConstantString("PGX");
+  entry->magick_module=ConstantString("PGX");
   (void) RegisterMagickInfo(entry);
   return(MagickImageCoderSignature);
 }
@@ -365,8 +368,8 @@ static MagickBooleanType WritePGXImage(const ImageInfo *image_info,Image *image)
   status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
-  (void) FormatLocaleString(buffer,MaxTextExtent,"PG ML + %ld %lu %lu\n",
-    image->depth,image->columns,image->rows);
+  (void) FormatLocaleString(buffer,MaxTextExtent,"PG ML + %g %g %g\n",
+    (double) image->depth,(double) image->columns,(double) image->rows);
   (void) WriteBlob(image,strlen(buffer),(unsigned char *) buffer);
   (void) TransformImageColorspace(image,sRGBColorspace);
   quantum_info=AcquireQuantumInfo(image_info,image);

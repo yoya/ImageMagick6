@@ -16,13 +16,13 @@
 %                               October 1998                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -88,7 +88,7 @@ static const char
     "<delegatemap>"
     "  <delegate decode=\"autotrace\" stealth=\"True\" command=\"&quot;autotrace&quot; -output-format svg -output-file &quot;%o&quot; &quot;%i&quot;\"/>"
     "  <delegate decode=\"avi:decode\" stealth=\"True\" command=\"&quot;mplayer&quot; &quot;%i&quot; -really-quiet -ao null -vo png:z=3\"/>"
-    "  <delegate decode=\"browse\" stealth=\"True\" spawn=\"True\" command=\"&quot;xdg-open&quot; http://www.imagemagick.org/; rm &quot;%i&quot;\"/>"
+    "  <delegate decode=\"browse\" stealth=\"True\" spawn=\"True\" command=\"&quot;xdg-open&quot; http://imagemagick.org/; rm &quot;%i&quot;\"/>"
     "  <delegate decode=\"cgm\" thread-support=\"False\" command=\"&quot;ralcgm&quot; -d ps -oC &lt; &quot;%i&quot; &gt; &quot;%o&quot; 2&gt; &quot;%u&quot;\"/>"
     "  <delegate decode=\"dng:decode\" command=\"&quot;ufraw-batch&quot; --silent --create-id=also --out-type=png --out-depth=16 &quot;--output=%u.png&quot; &quot;%i&quot;\"/>"
     "  <delegate decode=\"edit\" stealth=\"True\" command=\"&quot;xterm&quot; -title &quot;Edit Image Comment&quot; -e vi &quot;%o&quot;\"/>"
@@ -186,7 +186,7 @@ static LinkedListInfo *AcquireDelegateCache(const char *filename,
   if (cache == (LinkedListInfo *) NULL)
     ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
   status=MagickTrue;
-#if !defined(MAGICKCORE_ZERO_CONFIGURATION_SUPPORT)
+#if !MAGICKCORE_ZERO_CONFIGURATION_SUPPORT
   {
     const StringInfo
       *option;
@@ -436,13 +436,13 @@ MagickExport int ExternalDelegateCommand(const MagickBooleanType asynchronous,
       TODO: This won't work if one of the delegate parameters has a forward
             slash as aparameter.
     */
-    p=strstr(sanitize_command, "cmd.exe /c");
+    p=strstr(sanitize_command,"cmd.exe /c");
     if (p != (char*) NULL)
       {
         p+=10;
-        for (; *p != '\0'; p++)
+        for ( ; *p != '\0'; p++)
           if (*p == '/')
-            *p=*DirectorySeparator;
+            *p=(*DirectorySeparator);
       }
   }
   status=NTSystemCommand(sanitize_command,message);
@@ -506,6 +506,36 @@ MagickExport int ExternalDelegateCommand(const MagickBooleanType asynchronous,
 %    o exception: return any errors or warnings in this structure.
 %
 */
+
+static char *SanitizeDelegateString(const char *source)
+{
+  char
+    *sanitize_source;
+
+  const char
+    *q;
+
+  register char
+    *p;
+
+  static char
+#if defined(MAGICKCORE_WINDOWS_SUPPORT)
+    whitelist[] =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 "
+      "$-_.+!;*(),{}|^~[]`\'><#%/?:@&=";
+#else
+    whitelist[] =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 "
+      "$-_.+!;*(),{}|\\^~[]`\"><#%/?:@&=";
+#endif
+
+  sanitize_source=AcquireString(source);
+  p=sanitize_source;
+  q=sanitize_source+strlen(sanitize_source);
+  for (p+=strspn(p,whitelist); p != q; p+=strspn(p,whitelist))
+    *p='_';
+  return(sanitize_source);
+}
 
 static char *GetMagickPropertyLetter(const ImageInfo *image_info,Image *image,
   const char letter)
@@ -800,6 +830,15 @@ static char *GetMagickPropertyLetter(const ImageInfo *image_info,Image *image,
         image->page.width,(double) image->page.height);
       break;
     }
+    case '~':
+    {
+      /*
+        BPG Image compression quality.
+      */
+      (void) FormatLocaleString(value,MaxTextExtent,"%.20g",(double)
+        (100-(image->quality == 0 ? 42 : image->quality))/2);
+      break;
+    }
     case 'Q':
     {
       /*
@@ -909,7 +948,7 @@ static char *GetMagickPropertyLetter(const ImageInfo *image_info,Image *image,
       break;
     }
   }
-  return(SanitizeString(string));
+  return(SanitizeDelegateString(string));
 }
 
 static char *InterpretDelegateProperties(const ImageInfo *image_info,
@@ -2097,7 +2136,7 @@ static MagickBooleanType LoadDelegateCache(LinkedListInfo *cache,
     /*
       Interpret XML.
     */
-    GetNextToken(q,&q,extent,token);
+    (void) GetNextToken(q,&q,extent,token);
     if (*token == '\0')
       break;
     (void) CopyMagickString(keyword,token,MaxTextExtent);
@@ -2107,7 +2146,7 @@ static MagickBooleanType LoadDelegateCache(LinkedListInfo *cache,
           Doctype element.
         */
         while ((LocaleNCompare(q,"]>",2) != 0) && (*q != '\0'))
-          GetNextToken(q,&q,extent,token);
+          (void) GetNextToken(q,&q,extent,token);
         continue;
       }
     if (LocaleNCompare(keyword,"<!--",4) == 0)
@@ -2116,7 +2155,7 @@ static MagickBooleanType LoadDelegateCache(LinkedListInfo *cache,
           Comment element.
         */
         while ((LocaleNCompare(q,"->",2) != 0) && (*q != '\0'))
-          GetNextToken(q,&q,extent,token);
+          (void) GetNextToken(q,&q,extent,token);
         continue;
       }
     if (LocaleCompare(keyword,"<include") == 0)
@@ -2127,10 +2166,10 @@ static MagickBooleanType LoadDelegateCache(LinkedListInfo *cache,
         while (((*token != '/') && (*(token+1) != '>')) && (*q != '\0'))
         {
           (void) CopyMagickString(keyword,token,MaxTextExtent);
-          GetNextToken(q,&q,extent,token);
+          (void) GetNextToken(q,&q,extent,token);
           if (*token != '=')
             continue;
-          GetNextToken(q,&q,extent,token);
+          (void) GetNextToken(q,&q,extent,token);
           if (LocaleCompare(keyword,"file") == 0)
             {
               if (depth > MagickMaxRecursionDepth)
@@ -2190,11 +2229,11 @@ static MagickBooleanType LoadDelegateCache(LinkedListInfo *cache,
         delegate_info=(DelegateInfo *) NULL;
         continue;
       }
-    GetNextToken(q,(const char **) NULL,extent,token);
+    (void) GetNextToken(q,(const char **) NULL,extent,token);
     if (*token != '=')
       continue;
-    GetNextToken(q,&q,extent,token);
-    GetNextToken(q,&q,extent,token);
+    (void) GetNextToken(q,&q,extent,token);
+    (void) GetNextToken(q,&q,extent,token);
     switch (*keyword)
     {
       case 'C':

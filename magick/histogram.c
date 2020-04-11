@@ -18,13 +18,13 @@
 %                                August 2009                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -984,6 +984,7 @@ MagickExport MagickBooleanType IsPaletteImage(const Image *image,
 {
   assert(image != (Image *) NULL);
   assert(image->signature == MagickCoreSignature);
+  magick_unreferenced(exception);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   if (image->storage_class != PseudoClass)
@@ -1156,12 +1157,12 @@ static int HistogramCompare(const void *x,const void *y)
   color_1=(const ColorPacket *) x;
   color_2=(const ColorPacket *) y;
   if (color_2->pixel.red != color_1->pixel.red)
-    return((int) color_1->pixel.red-(int) color_2->pixel.red);
+    return((int) ((ssize_t) color_1->pixel.red-(ssize_t) color_2->pixel.red));
   if (color_2->pixel.green != color_1->pixel.green)
-    return((int) color_1->pixel.green-(int) color_2->pixel.green);
+    return((int) ((ssize_t) color_1->pixel.green-(ssize_t) color_2->pixel.green));
   if (color_2->pixel.blue != color_1->pixel.blue)
-    return((int) color_1->pixel.blue-(int) color_2->pixel.blue);
-  return((int) color_2->count-(int) color_1->count);
+    return((int) ((ssize_t) color_1->pixel.blue-(ssize_t) color_2->pixel.blue));
+  return((int) ((ssize_t) color_2->count-(ssize_t) color_1->count));
 }
 
 #if defined(__cplusplus) || defined(c_plusplus)
@@ -1220,20 +1221,20 @@ MagickExport size_t GetNumberColors(const Image *image,FILE *file,
   {
     SetMagickPixelPacket(image,&p->pixel,&p->index,&pixel);
     (void) CopyMagickString(tuple,"(",MaxTextExtent);
-    ConcatenateColorComponent(&pixel,RedChannel,X11Compliance,tuple);
+    ConcatenateColorComponent(&pixel,RedChannel,NoCompliance,tuple);
     (void) ConcatenateMagickString(tuple,",",MaxTextExtent);
-    ConcatenateColorComponent(&pixel,GreenChannel,X11Compliance,tuple);
+    ConcatenateColorComponent(&pixel,GreenChannel,NoCompliance,tuple);
     (void) ConcatenateMagickString(tuple,",",MaxTextExtent);
-    ConcatenateColorComponent(&pixel,BlueChannel,X11Compliance,tuple);
+    ConcatenateColorComponent(&pixel,BlueChannel,NoCompliance,tuple);
     if (pixel.colorspace == CMYKColorspace)
       {
         (void) ConcatenateMagickString(tuple,",",MaxTextExtent);
-        ConcatenateColorComponent(&pixel,IndexChannel,X11Compliance,tuple);
+        ConcatenateColorComponent(&pixel,IndexChannel,NoCompliance,tuple);
       }
     if (pixel.matte != MagickFalse)
       {
         (void) ConcatenateMagickString(tuple,",",MaxTextExtent);
-        ConcatenateColorComponent(&pixel,OpacityChannel,X11Compliance,tuple);
+        ConcatenateColorComponent(&pixel,OpacityChannel,NoCompliance,tuple);
       }
     (void) ConcatenateMagickString(tuple,")",MaxTextExtent);
     (void) QueryMagickColorname(image,&pixel,SVGCompliance,color,exception);

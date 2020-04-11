@@ -1,10 +1,10 @@
-#  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization
+#  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
 #  dedicated to making software imaging solutions freely available.
 #
 #  You may not use this file except in compliance with the License.  You may
 #  obtain a copy of the License at
 #
-#    http://www.imagemagick.org/script/license.php
+#    http://imagemagick.org/script/license.php
 #
 #  Unless required by applicable law or agreed to in writing, software
 #  distributed under the License is distributed on an "AS IS" BASIS,
@@ -200,6 +200,7 @@ MAGICK_BASE_SRCS = \
 	magick/morphology.c \
 	magick/morphology.h \
 	magick/morphology-private.h \
+	magick/mutex.h \
 	magick/nt-base.h \
 	magick/nt-base-private.h \
 	magick/nt-feature.h \
@@ -272,6 +273,7 @@ MAGICK_BASE_SRCS = \
 	magick/thread-private.h \
 	magick/timer.c \
 	magick/timer.h \
+	magick/timer-private.h \
 	magick/token.c \
 	magick/token.h \
 	magick/token-private.h \
@@ -289,6 +291,8 @@ MAGICK_BASE_SRCS = \
 	magick/version-private.h \
 	magick/vision.c \
 	magick/vision.h \
+	magick/visual-effects.c \
+	magick/visual-effects.h \
 	magick/vms.h \
 	magick/widget.c \
 	magick/widget.h \
@@ -409,6 +413,7 @@ MAGICK_INCLUDE_HDRS = \
 	magick/utility.h \
 	magick/version.h \
 	magick/vision.h \
+	magick/visual-effects.h \
 	magick/widget.h \
 	magick/xml-tree.h \
 	magick/xwindow.h
@@ -436,6 +441,7 @@ MAGICK_NOINST_HDRS = \
 	magick/mime-private.h \
 	magick/monitor-private.h \
 	magick/morphology-private.h \
+	magick/mutex.h \
 	magick/nt-base.h \
 	magick/nt-base-private.h \
 	magick/nt-feature.h \
@@ -453,6 +459,7 @@ MAGICK_NOINST_HDRS = \
 	magick/string-private.h \
 	magick/thread_.h \
 	magick/thread-private.h \
+	magick/timer-private.h \
 	magick/token-private.h \
 	magick/utility-private.h \
 	magick/version-private.h \

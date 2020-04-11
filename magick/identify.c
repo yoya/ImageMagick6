@@ -17,13 +17,13 @@
 %                            September 1994                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -665,9 +665,9 @@ MagickExport MagickBooleanType IdentifyImage(Image *image,FILE *file,
           (image->error.mean_error_per_pixel+0.5),
           image->error.normalized_mean_error,
           image->error.normalized_maximum_error);
-      if (GetBlobSize(image) != 0)
+      if (image->extent != 0)
         {
-          (void) FormatMagickSize(GetBlobSize(image),MagickTrue,format);
+          (void) FormatMagickSize(image->extent,MagickTrue,format);
           (void) FormatLocaleFile(file,"%s ",format);
         }
       (void) FormatLocaleFile(file,"%0.3fu %lu:%02lu.%03lu",user_time,
@@ -1230,27 +1230,6 @@ MagickExport MagickBooleanType IdentifyImage(Image *image,FILE *file,
       }
       image_info=DestroyImageInfo(image_info);
     }
-  (void) GetImageProperty(image,"exif:*");
-  (void) GetImageProperty(image,"icc:*");
-  (void) GetImageProperty(image,"iptc:*");
-  (void) GetImageProperty(image,"xmp:*");
-  ResetImagePropertyIterator(image);
-  property=GetNextImageProperty(image);
-  if (property != (const char *) NULL)
-    {
-      /*
-        Display image properties.
-      */
-      (void) FormatLocaleFile(file,"  Properties:\n");
-      while (property != (const char *) NULL)
-      {
-        (void) FormatLocaleFile(file,"    %s: ",property);
-        value=GetImageProperty(image,property);
-        if (value != (const char *) NULL)
-          (void) FormatLocaleFile(file,"%s\n",value);
-        property=GetNextImageProperty(image);
-      }
-    }
   (void) FormatLocaleString(key,MaxTextExtent,"8BIM:1999,2998:#1");
   value=GetImageProperty(image,key);
   if (value != (const char *) NULL)
@@ -1403,6 +1382,23 @@ MagickExport MagickBooleanType IdentifyImage(Image *image,FILE *file,
         name=GetNextImageProfile(image);
       }
     }
+  ResetImagePropertyIterator(image);
+  property=GetNextImageProperty(image);
+  if (property != (const char *) NULL)
+    {
+      /*
+        Display image properties.
+      */
+      (void) FormatLocaleFile(file,"  Properties:\n");
+      while (property != (const char *) NULL)
+      {
+        (void) FormatLocaleFile(file,"    %s: ",property);
+        value=GetImageProperty(image,property);
+        if (value != (const char *) NULL)
+          (void) FormatLocaleFile(file,"%s\n",value);
+        property=GetNextImageProperty(image);
+      }
+    }
   ResetImageArtifactIterator(image);
   artifact=GetNextImageArtifact(image);
   if (artifact != (const char *) NULL)
@@ -1440,7 +1436,7 @@ MagickExport MagickBooleanType IdentifyImage(Image *image,FILE *file,
     }
   (void) FormatLocaleFile(file,"  Tainted: %s\n",CommandOptionToMnemonic(
     MagickBooleanOptions,(ssize_t) image->taint));
-  (void) FormatMagickSize(GetBlobSize(image),MagickTrue,format);
+  (void) FormatMagickSize(image->extent,MagickTrue,format);
   (void) FormatLocaleFile(file,"  Filesize: %s\n",format);
   (void) FormatMagickSize((MagickSizeType) image->columns*image->rows,
      MagickFalse,format);

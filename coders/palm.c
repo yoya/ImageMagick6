@@ -23,7 +23,7 @@
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -328,7 +328,7 @@ static Image *ReadPALMImage(const ImageInfo *image_info,
     if ((bits_per_pixel != 1) && (bits_per_pixel != 2) &&
         (bits_per_pixel != 4) && (bits_per_pixel != 8) &&
         (bits_per_pixel != 16))
-      ThrowReaderException(CorruptImageError,"UnrecognizedBitsPerPixel");
+      ThrowReaderException(CorruptImageError,"UnsupportedBitsPerPixel");
     version=(size_t) ReadBlobByte(image);
     if ((version != 0) && (version != 1) && (version != 2))
       ThrowReaderException(CorruptImageError,"FileFormatVersionMismatch");
@@ -589,8 +589,8 @@ static Image *ReadPALMImage(const ImageInfo *image_info,
         AcquireNextImage(image_info,image);
         if (GetNextImageInList(image) == (Image *) NULL)
           {
-            (void) DestroyImageList(image);
-            return((Image *) NULL);
+            status=MagickFalse;
+            break;
           }
         image=SyncNextImageInList(image);
         status=SetImageProgress(image,LoadImagesTag,TellBlob(image),
@@ -600,6 +600,8 @@ static Image *ReadPALMImage(const ImageInfo *image_info,
       }
   } while (nextDepthOffset != 0);
   (void) CloseBlob(image);
+  if (status == MagickFalse)
+    return(DestroyImageList(image));
   return(GetFirstImageInList(image));
 }
 
@@ -635,7 +637,7 @@ ModuleExport size_t RegisterPALMImage(void)
   entry->encoder=(EncodeImageHandler *) WritePALMImage;
   entry->seekable_stream=MagickTrue;
   entry->description=ConstantString("Palm pixmap");
-  entry->module=ConstantString("PALM");
+  entry->magick_module=ConstantString("PALM");
   (void) RegisterMagickInfo(entry);
   return(MagickImageCoderSignature);
 }
@@ -777,7 +779,7 @@ static MagickBooleanType WritePALMImage(const ImageInfo *image_info,
   {
     (void) TransformImageColorspace(image,sRGBColorspace);
     count=GetNumberColors(image,NULL,exception);
-    for (bits_per_pixel=1;  (one << bits_per_pixel) < count; bits_per_pixel*=2) ;
+    for (bits_per_pixel=1; (one << bits_per_pixel) < count; bits_per_pixel*=2) ;
     if (bits_per_pixel > 16)
       bits_per_pixel=16;
     else
@@ -877,7 +879,7 @@ static MagickBooleanType WritePALMImage(const ImageInfo *image_info,
     last_row=(unsigned char *) NULL;
     if (image_info->compression == FaxCompression)
       {
-        last_row=(unsigned char *) AcquireQuantumMemory(bytes_per_row,
+        last_row=(unsigned char *) AcquireQuantumMemory(bytes_per_row+256,
           sizeof(*last_row));
         if (last_row == (unsigned char *) NULL)
           {
@@ -885,7 +887,7 @@ static MagickBooleanType WritePALMImage(const ImageInfo *image_info,
             ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
           }
       }
-    one_row=(unsigned char *) AcquireQuantumMemory(bytes_per_row,
+    one_row=(unsigned char *) AcquireQuantumMemory(bytes_per_row+256,
       sizeof(*one_row));
     if (one_row == (unsigned char *) NULL)
       {
@@ -906,10 +908,10 @@ static MagickBooleanType WritePALMImage(const ImageInfo *image_info,
         {
           for (x=0; x < (ssize_t) image->columns; x++)
           {
-            color16=(unsigned short) ((((31*(size_t) GetPixelRed(p))/
-              (size_t) QuantumRange) << 11) |
-              (((63*(size_t) GetPixelGreen(p))/(size_t) QuantumRange) << 5) |
-              ((31*(size_t) GetPixelBlue(p))/(size_t) QuantumRange));
+            color16=(unsigned short) ((((31*(ssize_t) GetPixelRed(p))/
+              (ssize_t) QuantumRange) << 11) |
+              (((63*(ssize_t) GetPixelGreen(p))/(ssize_t) QuantumRange) << 5) |
+              ((31*(ssize_t) GetPixelBlue(p))/(ssize_t) QuantumRange));
             if (GetPixelOpacity(p) == (Quantum) TransparentOpacity)
               {
                 transpix.red=GetPixelRed(p);

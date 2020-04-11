@@ -1,11 +1,11 @@
 /*
-  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
-  You may not use this file except in compliance with the License.
+  You may not use this file except in compliance with the License.  You may
   obtain a copy of the License at
   
-    https://www.imagemagick.org/script/license.php
+    https://imagemagick.org/script/license.php
   
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
@@ -28,6 +28,12 @@ extern "C" {
 
 #define ThrowBinaryException(severity,tag,context) \
 { \
+  (void) ThrowMagickException(exception,GetMagickModule(),severity, \
+    tag == (const char *) NULL ? "unknown" : tag,"`%s'",context); \
+  return(MagickFalse); \
+}
+#define ThrowBinaryImageException(severity,tag,context) \
+{ \
   if (image != (Image *) NULL) \
     (void) ThrowMagickException(&image->exception,GetMagickModule(),severity, \
        tag == (const char *) NULL ? "unknown" : tag,"`%s'",context); \
@@ -36,18 +42,18 @@ extern "C" {
 #define ThrowFatalException(severity,tag) \
 { \
   char \
-    *message; \
+    *fatal_message; \
  \
   ExceptionInfo \
-    *exception; \
+    *fatal_exception; \
  \
-  exception=AcquireExceptionInfo(); \
-  message=GetExceptionMessage(errno); \
-  (void) ThrowMagickException(exception,GetMagickModule(),severity, \
-    tag == (const char *) NULL ? "unknown" : tag,"`%s'",message); \
-  message=DestroyString(message); \
-  CatchException(exception); \
-  (void) DestroyExceptionInfo(exception); \
+  fatal_exception=AcquireExceptionInfo(); \
+  fatal_message=GetExceptionMessage(errno); \
+  (void) ThrowMagickException(fatal_exception,GetMagickModule(),severity, \
+    tag == (const char *) NULL ? "unknown" : tag,"`%s'",fatal_message); \
+  fatal_message=DestroyString(fatal_message); \
+  CatchException(fatal_exception); \
+  (void) DestroyExceptionInfo(fatal_exception); \
   MagickCoreTerminus(); \
   _exit((int) (severity-FatalErrorException)+1); \
 }
@@ -90,9 +96,11 @@ extern "C" {
 }
 
 extern MagickPrivate MagickBooleanType
-  ClearExceptionInfo(ExceptionInfo *,MagickBooleanType);
+  ClearExceptionInfo(ExceptionInfo *,MagickBooleanType),
+  ExceptionComponentGenesis(void);
 
 extern MagickPrivate void
+  ExceptionComponentTerminus(void),
   InitializeExceptionInfo(ExceptionInfo *);
 
 #if defined(__cplusplus) || defined(c_plusplus)

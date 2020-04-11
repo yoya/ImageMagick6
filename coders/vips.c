@@ -17,13 +17,13 @@
 %                                 April 2014                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -488,6 +488,7 @@ static Image *ReadVIPSImage(const ImageInfo *image_info,
     case VIPSTypeYXY:
       ThrowReaderException(CoderError,"Unsupported colorspace");
   }
+  (void) SetImageBackgroundColor(image);
   image->units=PixelsPerCentimeterResolution;
   image->x_resolution=ReadBlobFloat(image)*10;
   image->y_resolution=ReadBlobFloat(image)*10;
@@ -561,7 +562,7 @@ ModuleExport size_t RegisterVIPSImage(void)
   entry->magick=(IsImageFormatHandler *) IsVIPS;
   entry->description=ConstantString("VIPS image");
   entry->endian_support=MagickTrue;
-  entry->module=ConstantString("VIPS");
+  entry->magick_module=ConstantString("VIPS");
   (void) RegisterMagickInfo(entry);
   return(MagickImageCoderSignature);
 }

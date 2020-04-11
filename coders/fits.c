@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -331,7 +331,7 @@ static Image *ReadFITSImage(const ImageInfo *image_info,
       {
         if (isspace((int) ((unsigned char) keyword[i])) != 0)
           break;
-        keyword[i]=tolower((int) ((unsigned char) keyword[i]));
+        keyword[i]=LocaleLowercase((int) ((unsigned char) keyword[i]));
       }
       keyword[i]='\0';
       count=ReadBlob(image,72,(unsigned char *) value);
@@ -505,8 +505,8 @@ static Image *ReadFITSImage(const ImageInfo *image_info,
         AcquireNextImage(image_info,image);
         if (GetNextImageInList(image) == (Image *) NULL)
           {
-            image=DestroyImageList(image);
-            return((Image *) NULL);
+            status=MagickFalse;
+            break;
           }
         image=SyncNextImageInList(image);
         status=SetImageProgress(image,LoadImagesTag,TellBlob(image),
@@ -516,6 +516,8 @@ static Image *ReadFITSImage(const ImageInfo *image_info,
       }
   }
   (void) CloseBlob(image);
+  if (status == MagickFalse)
+    return(DestroyImageList(image));
   return(GetFirstImageInList(image));
 }
 
@@ -554,7 +556,7 @@ ModuleExport size_t RegisterFITSImage(void)
   entry->adjoin=MagickFalse;
   entry->seekable_stream=MagickTrue;
   entry->description=ConstantString("Flexible Image Transport System");
-  entry->module=ConstantString("FITS");
+  entry->magick_module=ConstantString("FITS");
   (void) RegisterMagickInfo(entry);
   entry=SetMagickInfo("FTS");
   entry->decoder=(DecodeImageHandler *) ReadFITSImage;
@@ -563,7 +565,7 @@ ModuleExport size_t RegisterFITSImage(void)
   entry->adjoin=MagickFalse;
   entry->seekable_stream=MagickTrue;
   entry->description=ConstantString("Flexible Image Transport System");
-  entry->module=ConstantString("FITS");
+  entry->magick_module=ConstantString("FITS");
   (void) RegisterMagickInfo(entry);
   return(MagickImageCoderSignature);
 }
@@ -725,7 +727,7 @@ static MagickBooleanType WriteFITSImage(const ImageInfo *image_info,
   CopyFitsRecord(fits_info,header,offset);
   offset+=80;
   (void) FormatLocaleString(header,FITSBlocksize,"BZERO   =         %E",
-    image->depth > 8 ? GetFITSPixelRange(image->depth)/2.0 : 0.0);
+    image->depth > 8 ? (GetFITSPixelRange(image->depth)+1)/2.0 : 0.0);
   CopyFitsRecord(fits_info,header,offset);
   offset+=80;
   (void) FormatLocaleString(header,FITSBlocksize,"DATAMAX =         %E",

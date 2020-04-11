@@ -17,13 +17,13 @@
 %                               February 2002                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -136,6 +136,8 @@ static Image *ReadCAPTIONImage(const ImageInfo *image_info,
   assert(exception->signature == MagickCoreSignature);
   image=AcquireImage(image_info);
   (void) ResetImagePage(image,"0x0+0+0");
+  if ((image->columns != 0) && (image->rows != 0))
+    (void) SetImageBackgroundColor(image);
   /*
     Format caption.
   */
@@ -165,6 +167,7 @@ static Image *ReadCAPTIONImage(const ImageInfo *image_info,
       MagickFalse,gravity);
   split=MagickFalse;
   status=MagickTrue;
+  (void) memset(&metrics,0,sizeof(metrics));
   if (image->columns == 0)
     {
       text=AcquireString(caption);
@@ -176,8 +179,7 @@ static Image *ReadCAPTIONImage(const ImageInfo *image_info,
       if (draw_info->gravity == UndefinedGravity)
         (void) CloneString(&draw_info->geometry,geometry);
       status=GetMultilineTypeMetrics(image,draw_info,&metrics);
-      width=(size_t) floor(metrics.width+draw_info->stroke_width+0.5);
-      image->columns=width;
+      image->columns=(size_t) floor(metrics.width+draw_info->stroke_width+0.5);
     }
   if (image->rows == 0)
     {
@@ -289,8 +291,8 @@ static Image *ReadCAPTIONImage(const ImageInfo *image_info,
   caption=DestroyString(caption);
   (void) FormatLocaleString(geometry,MaxTextExtent,"%+g%+g",MagickMax(
     draw_info->direction == RightToLeftDirection ? (double) image->columns-
-    metrics.bounds.x2 : -metrics.bounds.x1,0.0),draw_info->gravity ==
-    UndefinedGravity ? metrics.ascent : 0.0);
+    metrics.bounds.x2 : -metrics.bounds.x1,0.0),(draw_info->gravity ==
+    UndefinedGravity ? MagickMax(metrics.ascent,metrics.bounds.y2) : 0.0));
   (void) CloneString(&draw_info->geometry,geometry);
   status=AnnotateImage(image,draw_info);
   if (image_info->pointsize == 0.0)
@@ -343,7 +345,7 @@ ModuleExport size_t RegisterCAPTIONImage(void)
   entry->decoder=(DecodeImageHandler *) ReadCAPTIONImage;
   entry->description=ConstantString("Caption");
   entry->adjoin=MagickFalse;
-  entry->module=ConstantString("CAPTION");
+  entry->magick_module=ConstantString("CAPTION");
   (void) RegisterMagickInfo(entry);
   return(MagickImageCoderSignature);
 }

@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -233,7 +233,8 @@ static Image *ReadPWPImage(const ImageInfo *image_info,ExceptionInfo *exception)
       c=ReadBlobByte(pwp_image);
       if (c == EOF)
         break;
-      (void) fputc(c,file);
+      if (fputc(c,file) != c)
+        break;
     }
     (void) fclose(file);
     if (c == EOF)
@@ -321,7 +322,7 @@ ModuleExport size_t RegisterPWPImage(void)
   entry->decoder=(DecodeImageHandler *) ReadPWPImage;
   entry->magick=(IsImageFormatHandler *) IsPWP;
   entry->description=ConstantString("Seattle Film Works");
-  entry->module=ConstantString("PWP");
+  entry->magick_module=ConstantString("PWP");
   (void) RegisterMagickInfo(entry);
   return(MagickImageCoderSignature);
 }

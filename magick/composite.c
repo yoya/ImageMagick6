@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -253,7 +253,7 @@ static MagickRealType ColorBurn(const MagickRealType Sca,
     return(Sa*Da+Dca*(1.0-Sa));
   if (Sca < MagickEpsilon)
     return(Dca*(1.0-Sa));
-  SaSca=Sa*PerceptibleReciprocal(Sca);    
+  SaSca=Sa*PerceptibleReciprocal(Sca);
   return(Sa*Da-Sa*MagickMin(Da,(Da-Dca)*SaSca)+Sca*(1.0-Da)+Dca*(1.0-Sa));
 }
 
@@ -1127,18 +1127,12 @@ static inline void CompositeMinus(const MagickPixelPacket *p,
   }
 }
 
-static inline MagickRealType ModulusAdd(const MagickRealType p,
-  const MagickRealType Sa,const MagickRealType q,const MagickRealType Da)
+static inline MagickRealType ModulusAdd(const MagickRealType Sc,
+  const MagickRealType Sa,const MagickRealType Dc,const MagickRealType Da)
 {
-  MagickRealType
-    pixel;
-
-  pixel=p+q;
-  while (pixel > QuantumRange)
-    pixel-=QuantumRange;
-  while (pixel < 0.0)
-    pixel+=QuantumRange;
-  return(pixel*Sa*Da+p*Sa*(1.0-Da)+q*Da*(1.0-Sa));
+  if (((Sc*Sa)+(Dc*Da)) <= QuantumRange)
+    return((Sc*Sa)+Dc*Da);
+  return(((Sc*Sa)+Dc*Da)-QuantumRange);
 }
 
 static inline void CompositeModulusAdd(const MagickPixelPacket *p,
@@ -1179,18 +1173,12 @@ static inline void CompositeModulusAdd(const MagickPixelPacket *p,
   }
 }
 
-static inline MagickRealType ModulusSubtract(const MagickRealType p,
-  const MagickRealType Sa,const MagickRealType q,const MagickRealType Da)
+static inline MagickRealType ModulusSubtract(const MagickRealType Sc,
+  const MagickRealType Sa,const MagickRealType Dc,const MagickRealType Da)
 {
-  MagickRealType
-    pixel;
-
-  pixel=p-q;
-  while (pixel > QuantumRange)
-    pixel-=QuantumRange;
-  while (pixel < 0.0)
-    pixel+=QuantumRange;
-  return(pixel*Sa*Da+p*Sa*(1.0-Da)+q*Da*(1.0-Sa));
+  if (((Sc*Sa)-(Dc*Da)) <= 0.0)
+    return((Sc*Sa)-Dc*Da);
+  return(((Sc*Sa)-Dc*Da)+QuantumRange);
 }
 
 static inline void CompositeModulusSubtract(const MagickPixelPacket *p,
@@ -1660,8 +1648,6 @@ MagickExport MagickBooleanType CompositeImageChannel(Image *image,
   source_image=CloneImage(composite,0,0,MagickTrue,exception);
   if (source_image == (const Image *) NULL)
     return(MagickFalse);
-  if (IsGrayColorspace(image->colorspace) != MagickFalse)
-    (void) SetImageColorspace(image,sRGBColorspace);
   (void) SetImageColorspace(source_image,image->colorspace);
   GetMagickPixelPacket(image,&zero);
   canvas_image=(Image *) NULL;
@@ -1754,11 +1740,8 @@ MagickExport MagickBooleanType CompositeImageChannel(Image *image,
             MagickBooleanType
               proceed;
 
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-            #pragma omp critical (MagickCore_CompositeImage)
-#endif
-            proceed=SetImageProgress(image,CompositeImageTag,
-              (MagickOffsetType) y,image->rows);
+            proceed=SetImageProgress(image,CompositeImageTag,(MagickOffsetType)
+              y,image->rows);
             if (proceed == MagickFalse)
               status=MagickFalse;
           }
@@ -1807,8 +1790,7 @@ MagickExport MagickBooleanType CompositeImageChannel(Image *image,
         Blur Image dictated by an overlay gradient map: X = red_channel;
           Y = green_channel; compose:args =  x_scale[,y_scale[,angle]].
       */
-      canvas_image=CloneImage(image,image->columns,image->rows,MagickTrue,
-        exception);
+      canvas_image=CloneImage(image,0,0,MagickTrue,exception);
       if (canvas_image == (Image *) NULL)
         {
           source_image=DestroyImage(source_image);
@@ -1986,8 +1968,7 @@ MagickExport MagickBooleanType CompositeImageChannel(Image *image,
           X = red_channel;  Y = green_channel;
           compose:args = x_scale[,y_scale[,center.x,center.y]]
       */
-      canvas_image=CloneImage(image,image->columns,image->rows,MagickTrue,
-        exception);
+      canvas_image=CloneImage(image,0,0,MagickTrue,exception);
       if (canvas_image == (Image *) NULL)
         {
           source_image=DestroyImage(source_image);
@@ -2240,6 +2221,9 @@ MagickExport MagickBooleanType CompositeImageChannel(Image *image,
   value=GetImageArtifact(image,"compose:outside-overlay");
   if (value != (const char *) NULL)
     clip_to_self=IsMagickTrue(value) == MagickFalse ? MagickTrue : MagickFalse;
+  value=GetImageArtifact(image,"compose:clip-to-self");
+  if (value != (const char *) NULL)
+    clip_to_self=IsMagickTrue(value) != MagickFalse ? MagickTrue : MagickFalse;
   clamp=MagickTrue;
   value=GetImageArtifact(image,"compose:clamp");
   if (value != (const char *) NULL)
@@ -2688,7 +2672,8 @@ MagickExport MagickBooleanType CompositeImageChannel(Image *image,
         }
         case StereoCompositeOp:
         {
-          canvas.red=(MagickRealType) GetPixelRed(p);
+          composite.red=(MagickRealType) GetPixelRed(p);
+          composite.opacity=(composite.opacity+canvas.opacity/2);
           break;
         }
         case ThresholdCompositeOp:
@@ -2819,7 +2804,7 @@ MagickExport MagickBooleanType CompositeImageChannel(Image *image,
         {
           if (source.colorspace != CMYKColorspace)
             ConvertRGBToCMYK(&source);
-          composite.index=QuantumRange-source.index;
+          composite.index=source.index;
           break;
         }
         /* compose methods that are already handled */
@@ -2864,10 +2849,10 @@ MagickExport MagickBooleanType CompositeImageChannel(Image *image,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_CompositeImageChannel)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(image,CompositeImageTag,progress++,
-          image->rows);
+        progress++;
+        proceed=SetImageProgress(image,CompositeImageTag,progress,image->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
       }
@@ -3054,9 +3039,6 @@ MagickExport MagickBooleanType TextureImage(Image *image,const Image *texture)
         MagickBooleanType
           proceed;
 
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_TextureImage)
-#endif
         proceed=SetImageProgress(image,TextureImageTag,(MagickOffsetType) y,
           image->rows);
         if (proceed == MagickFalse)

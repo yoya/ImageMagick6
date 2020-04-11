@@ -17,13 +17,13 @@
 %                                March 2000                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -778,12 +778,14 @@ static MagickBooleanType GetMagickModulePath(const char *filename,
       *home;
 
     home=GetEnvironmentValue("XDG_CONFIG_HOME");
+#if defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__MINGW32__)
     if (home == (char *) NULL)
       home=GetEnvironmentValue("LOCALAPPDATA");
     if (home == (char *) NULL)
       home=GetEnvironmentValue("APPDATA");
     if (home == (char *) NULL)
       home=GetEnvironmentValue("USERPROFILE");
+#endif
     if (home != (char *) NULL)
       {
         /*
@@ -982,6 +984,14 @@ MagickExport MagickBooleanType InvokeDynamicImageFilter(const char *tag,
   if ((*images)->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",
       (*images)->filename);
+  rights=ReadPolicyRights;
+  if (IsRightsAuthorized(FilterPolicyDomain,rights,tag) == MagickFalse)
+    {
+      errno=EPERM;
+      (void) ThrowMagickException(exception,GetMagickModule(),PolicyError,
+        "NotAuthorized","`%s'",tag);
+      return(MagickFalse);
+    }
 #if !defined(MAGICKCORE_BUILD_MODULES)
   {
     MagickBooleanType
@@ -992,14 +1002,6 @@ MagickExport MagickBooleanType InvokeDynamicImageFilter(const char *tag,
       return(status);
   }
 #endif
-  rights=ReadPolicyRights;
-  if (IsRightsAuthorized(FilterPolicyDomain,rights,tag) == MagickFalse)
-    {
-      errno=EPERM;
-      (void) ThrowMagickException(exception,GetMagickModule(),PolicyError,
-        "NotAuthorized","`%s'",tag);
-      return(MagickFalse);
-    }
   TagToFilterModuleName(tag,name);
   status=GetMagickModulePath(name,MagickImageFilterModule,path,exception);
   if (status == MagickFalse)
@@ -1248,7 +1250,6 @@ MagickExport MagickBooleanType OpenModule(const char *module,
   ExceptionInfo *exception)
 {
   char
-    filename[MaxTextExtent],
     module_name[MaxTextExtent],
     name[MaxTextExtent],
     path[MaxTextExtent];
@@ -1261,6 +1262,9 @@ MagickExport MagickBooleanType OpenModule(const char *module,
 
   ModuleInfo
     *module_info;
+
+  PolicyRights
+    rights;
 
   register const CoderInfo
     *p;
@@ -1275,6 +1279,14 @@ MagickExport MagickBooleanType OpenModule(const char *module,
   module_info=(ModuleInfo *) GetModuleInfo(module,exception);
   if (module_info != (ModuleInfo *) NULL)
     return(MagickTrue);
+  rights=ReadPolicyRights;
+  if (IsRightsAuthorized(ModulePolicyDomain,rights,module) == MagickFalse)
+    {
+      errno=EPERM;
+      (void) ThrowMagickException(exception,GetMagickModule(),PolicyError,
+        "NotAuthorized","`%s'",module);
+      return(MagickFalse);
+    }
   (void) CopyMagickString(module_name,module,MaxTextExtent);
   p=GetCoderInfo(module,exception);
   if (p != (CoderInfo *) NULL)
@@ -1285,11 +1297,11 @@ MagickExport MagickBooleanType OpenModule(const char *module,
     Locate module.
   */
   handle=(ModuleHandle) NULL;
-  TagToCoderModuleName(module_name,filename);
+  TagToCoderModuleName(module_name,name);
   (void) LogMagickEvent(ModuleEvent,GetMagickModule(),
-    "Searching for module \"%s\" using filename \"%s\"",module_name,filename);
+    "Searching for module \"%s\" using filename \"%s\"",module_name,name);
   *path='\0';
-  status=GetMagickModulePath(filename,MagickImageCoderModule,path,exception);
+  status=GetMagickModulePath(name,MagickImageCoderModule,path,exception);
   if (status == MagickFalse)
     return(MagickFalse);
   /*

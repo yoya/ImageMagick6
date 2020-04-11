@@ -6,7 +6,7 @@
 #
 # Package base name
 PACKAGE_NAME='ImageMagick'
-PACKAGE_BUGREPORT="https://github.com/ImageMagick/ImageMagick/issues"
+PACKAGE_BUGREPORT="https://github.com/ImageMagick/ImageMagick6/issues"
 
 #
 # Date of last ChangeLog update
@@ -16,11 +16,11 @@ PACKAGE_CHANGE_DATE=`awk '/^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/ { print 
 #
 # Package version.  This is is the numeric version suffix applied to
 # PACKAGE_NAME (e.g. "1.0.0").
-PACKAGE_VERSION='6.9.9'
-PACKAGE_PERL_VERSION='6.99'
-PACKAGE_LIB_VERSION="0x699"
-PACKAGE_RELEASE="51"
-PACKAGE_LIB_VERSION_NUMBER="6,9,9,${PACKAGE_RELEASE}"
+PACKAGE_VERSION='6.9.11'
+PACKAGE_PERL_VERSION='6.9.11'
+PACKAGE_LIB_VERSION="0x69B"
+PACKAGE_RELEASE="7"
+PACKAGE_LIB_VERSION_NUMBER="6,9,11,${PACKAGE_RELEASE}"
 PACKAGE_RELEASE_DATE_RAW=`date +%F`
 PACKAGE_RELEASE_DATE_REPRODUCIBLE="${PACKAGE_CHANGE_DATE}"
 PACKAGE_STRING="$PACKAGE_NAME $PACKAGE_VERSION"

@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -97,7 +97,7 @@ ModuleExport size_t RegisterMATTEImage(void)
   entry->encoder=(EncodeImageHandler *) WriteMATTEImage;
   entry->format_type=ExplicitFormatType;
   entry->description=ConstantString("MATTE format");
-  entry->module=ConstantString("MATTE");
+  entry->magick_module=ConstantString("MATTE");
   (void) RegisterMagickInfo(entry);
   return(MagickImageCoderSignature);
 }
@@ -181,8 +181,7 @@ static MagickBooleanType WriteMATTEImage(const ImageInfo *image_info,
 
   if (image->matte == MagickFalse)
     ThrowWriterException(CoderError,"ImageDoesNotHaveAAlphaChannel");
-  matte_image=CloneImage(image,image->columns,image->rows,MagickTrue,
-    &image->exception);
+  matte_image=CloneImage(image,0,0,MagickTrue,&image->exception);
   if (matte_image == (Image *) NULL)
     return(MagickFalse);
   (void) SetImageType(matte_image,TrueColorMatteType);

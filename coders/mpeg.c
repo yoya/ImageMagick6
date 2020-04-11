@@ -17,13 +17,13 @@
 %                                 July 1999                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -259,14 +259,14 @@ ModuleExport size_t RegisterMPEGImage(void)
   entry->blob_support=MagickFalse;
   entry->seekable_stream=MagickTrue;
   entry->description=ConstantString("Media Container");
-  entry->module=ConstantString("MPEG");
+  entry->magick_module=ConstantString("MPEG");
   (void) RegisterMagickInfo(entry);
   entry=SetMagickInfo("3G2");
   entry->decoder=(DecodeImageHandler *) ReadMPEGImage;
   entry->blob_support=MagickFalse;
   entry->seekable_stream=MagickTrue;
   entry->description=ConstantString("Media Container");
-  entry->module=ConstantString("MPEG");
+  entry->magick_module=ConstantString("MPEG");
   (void) RegisterMagickInfo(entry);
   entry=SetMagickInfo("AVI");
   entry->decoder=(DecodeImageHandler *) ReadMPEGImage;
@@ -274,7 +274,7 @@ ModuleExport size_t RegisterMPEGImage(void)
   entry->blob_support=MagickFalse;
   entry->seekable_stream=MagickTrue;
   entry->description=ConstantString("Microsoft Audio/Visual Interleaved");
-  entry->module=ConstantString("MPEG");
+  entry->magick_module=ConstantString("MPEG");
   (void) RegisterMagickInfo(entry);
   entry=SetMagickInfo("MKV");
   entry->decoder=(DecodeImageHandler *) ReadMPEGImage;
@@ -283,7 +283,7 @@ ModuleExport size_t RegisterMPEGImage(void)
   entry->blob_support=MagickFalse;
   entry->seekable_stream=MagickTrue;
   entry->description=ConstantString("Multimedia Container");
-  entry->module=ConstantString("MPEG");
+  entry->magick_module=ConstantString("MPEG");
   (void) RegisterMagickInfo(entry);
   entry=SetMagickInfo("MOV");
   entry->decoder=(DecodeImageHandler *) ReadMPEGImage;
@@ -292,7 +292,7 @@ ModuleExport size_t RegisterMPEGImage(void)
   entry->blob_support=MagickFalse;
   entry->seekable_stream=MagickTrue;
   entry->description=ConstantString("MPEG Video Stream");
-  entry->module=ConstantString("MPEG");
+  entry->magick_module=ConstantString("MPEG");
   (void) RegisterMagickInfo(entry);
   entry=SetMagickInfo("MPEG");
   entry->decoder=(DecodeImageHandler *) ReadMPEGImage;
@@ -301,7 +301,7 @@ ModuleExport size_t RegisterMPEGImage(void)
   entry->blob_support=MagickFalse;
   entry->seekable_stream=MagickTrue;
   entry->description=ConstantString("MPEG Video Stream");
-  entry->module=ConstantString("MPEG");
+  entry->magick_module=ConstantString("MPEG");
   (void) RegisterMagickInfo(entry);
   entry=SetMagickInfo("MPG");
   entry->decoder=(DecodeImageHandler *) ReadMPEGImage;
@@ -310,7 +310,7 @@ ModuleExport size_t RegisterMPEGImage(void)
   entry->blob_support=MagickFalse;
   entry->seekable_stream=MagickTrue;
   entry->description=ConstantString("MPEG Video Stream");
-  entry->module=ConstantString("MPEG");
+  entry->magick_module=ConstantString("MPEG");
   (void) RegisterMagickInfo(entry);
   entry=SetMagickInfo("MP4");
   entry->decoder=(DecodeImageHandler *) ReadMPEGImage;
@@ -319,7 +319,7 @@ ModuleExport size_t RegisterMPEGImage(void)
   entry->blob_support=MagickFalse;
   entry->seekable_stream=MagickTrue;
   entry->description=ConstantString("MPEG-4 Video Stream");
-  entry->module=ConstantString("MPEG");
+  entry->magick_module=ConstantString("MPEG");
   (void) RegisterMagickInfo(entry);
   entry=SetMagickInfo("M2V");
   entry->decoder=(DecodeImageHandler *) ReadMPEGImage;
@@ -328,7 +328,7 @@ ModuleExport size_t RegisterMPEGImage(void)
   entry->blob_support=MagickFalse;
   entry->seekable_stream=MagickTrue;
   entry->description=ConstantString("MPEG Video Stream");
-  entry->module=ConstantString("MPEG");
+  entry->magick_module=ConstantString("MPEG");
   (void) RegisterMagickInfo(entry);
   entry=SetMagickInfo("M4V");
   entry->decoder=(DecodeImageHandler *) ReadMPEGImage;
@@ -337,7 +337,7 @@ ModuleExport size_t RegisterMPEGImage(void)
   entry->blob_support=MagickFalse;
   entry->seekable_stream=MagickTrue;
   entry->description=ConstantString("Raw MPEG-4 Video");
-  entry->module=ConstantString("MPEG");
+  entry->magick_module=ConstantString("MPEG");
   (void) RegisterMagickInfo(entry);
   entry=SetMagickInfo("WMV");
   entry->decoder=(DecodeImageHandler *) ReadMPEGImage;
@@ -346,7 +346,7 @@ ModuleExport size_t RegisterMPEGImage(void)
   entry->blob_support=MagickFalse;
   entry->seekable_stream=MagickTrue;
   entry->description=ConstantString("Windows Media Video");
-  entry->module=ConstantString("MPEG");
+  entry->magick_module=ConstantString("MPEG");
   (void) RegisterMagickInfo(entry);
   return(MagickImageCoderSignature);
 }

@@ -17,13 +17,13 @@
 %                                 April 2014                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -142,7 +142,7 @@ static Image *ReadSCREENSHOTImage(const ImageInfo *image_info,
     register ssize_t
       x;
 
-    RGBTRIPLE
+    RGBQUAD
       *p;
 
     ssize_t
@@ -187,7 +187,7 @@ static Image *ReadSCREENSHOTImage(const ImageInfo *image_info,
       bmi.bmiHeader.biWidth=(LONG) screen->columns;
       bmi.bmiHeader.biHeight=(-1)*(LONG) screen->rows;
       bmi.bmiHeader.biPlanes=1;
-      bmi.bmiHeader.biBitCount=24;
+      bmi.bmiHeader.biBitCount=32;
       bmi.bmiHeader.biCompression=BI_RGB;
       bitmap=CreateDIBSection(hDC,&bmi,DIB_RGB_COLORS,(void **) &p,NULL,0);
       if (bitmap == (HBITMAP) NULL)
@@ -215,9 +215,9 @@ static Image *ReadSCREENSHOTImage(const ImageInfo *image_info,
           break;
         for (x=0; x < (ssize_t) screen->columns; x++)
         {
-          SetPixelRed(q,ScaleCharToQuantum(p->rgbtRed));
-          SetPixelGreen(q,ScaleCharToQuantum(p->rgbtGreen));
-          SetPixelBlue(q,ScaleCharToQuantum(p->rgbtBlue));
+          SetPixelRed(q,ScaleCharToQuantum(p->rgbRed));
+          SetPixelGreen(q,ScaleCharToQuantum(p->rgbGreen));
+          SetPixelBlue(q,ScaleCharToQuantum(p->rgbBlue));
           SetPixelOpacity(q,OpaqueOpacity);
           p++;
           q++;
@@ -285,7 +285,7 @@ ModuleExport size_t RegisterSCREENSHOTImage(void)
   entry->decoder=(DecodeImageHandler *) ReadSCREENSHOTImage;
   entry->format_type=ImplicitFormatType;
   entry->description=ConstantString("Screen shot");
-  entry->module=ConstantString("SCREENSHOT");
+  entry->magick_module=ConstantString("SCREENSHOT");
   (void) RegisterMagickInfo(entry);
   return(MagickImageCoderSignature);
 }

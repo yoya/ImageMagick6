@@ -17,13 +17,13 @@
 %                               November 2001                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -639,8 +639,14 @@ static MagickBooleanType load_level(Image *image,XCFDocInfo *inDocInfo,
     and we can simply return.
   */
   offset=(MagickOffsetType) ReadBlobMSBLong(image);
+  if (EOFBlob(image) != MagickFalse)
+    ThrowBinaryException(CorruptImageError,"UnexpectedEndOfFile", 
+      image->filename);
   if (offset == 0)
-    return(MagickTrue);
+    {
+      (void) SetImageBackgroundColor(image);
+      return(MagickTrue);
+    }
   /*
     Initialize the reference for the in-memory tile-compression.
   */
@@ -667,7 +673,7 @@ static MagickBooleanType load_level(Image *image,XCFDocInfo *inDocInfo,
     if (offset2 == 0)
       offset2=(MagickOffsetType) (offset + TILE_WIDTH * TILE_WIDTH * 4* 1.5);
     /* seek to the tile offset */
-    if (SeekBlob(image, offset, SEEK_SET) != offset)
+    if ((offset > offset2) || ( SeekBlob(image, offset, SEEK_SET) != offset))
       ThrowBinaryException(CorruptImageError,"InsufficientImageDataInFile",
         image->filename);
 
@@ -746,8 +752,8 @@ static MagickBooleanType load_hierarchy(Image *image,XCFDocInfo *inDocInfo,
     offset,
     junk;
 
-  (void) ReadBlobMSBLong(image); // width
-  (void) ReadBlobMSBLong(image); // height
+  (void) ReadBlobMSBLong(image);  /* width */
+  (void) ReadBlobMSBLong(image);  /* height */
   inDocInfo->bytes_per_pixel=ReadBlobMSBLong(image);
 
   /* load in the levels...we make sure that the number of levels
@@ -756,7 +762,7 @@ static MagickBooleanType load_hierarchy(Image *image,XCFDocInfo *inDocInfo,
    */
   offset=(MagickOffsetType) ReadBlobMSBLong(image);  /* top level */
   if ((MagickSizeType) offset >= GetBlobSize(image))
-    ThrowBinaryException(CorruptImageError,"InsufficientImageDataInFile",
+    ThrowBinaryImageException(CorruptImageError,"InsufficientImageDataInFile",
       image->filename);
 
   /* discard offsets for layers below first, if any.
@@ -774,7 +780,7 @@ static MagickBooleanType load_hierarchy(Image *image,XCFDocInfo *inDocInfo,
 
   /* seek to the level offset */
   if (SeekBlob(image, offset, SEEK_SET) != offset)
-    ThrowBinaryException(CorruptImageError,"InsufficientImageDataInFile",
+    ThrowBinaryImageException(CorruptImageError,"InsufficientImageDataInFile",
       image->filename);
 
   /* read in the level */
@@ -821,10 +827,10 @@ static MagickBooleanType ReadOneLayer(const ImageInfo *image_info,Image* image,
   (void) ReadBlobStringWithLongSize(image, outLayer->name,
     sizeof(outLayer->name),&image->exception);
   if (EOFBlob(image) != MagickFalse)
-    ThrowBinaryException(CorruptImageError,"InsufficientImageDataInFile",
+    ThrowBinaryImageException(CorruptImageError,"InsufficientImageDataInFile",
       image->filename);
   if ((outLayer->width == 0) || (outLayer->height == 0))
-    ThrowBinaryException(CorruptImageError,"ImproperImageHeader",
+    ThrowBinaryImageException(CorruptImageError,"ImproperImageHeader",
       image->filename);
   /* read the layer properties! */
   foundPropEnd = 0;
@@ -907,7 +913,7 @@ static MagickBooleanType ReadOneLayer(const ImageInfo *image_info,Image* image,
         amount = (ssize_t) MagickMin(16, prop_size);
         amount = ReadBlob(image, (size_t) amount, (unsigned char *) &buf);
         if (!amount)
-          ThrowBinaryException(CorruptImageError,"CorruptImage",
+          ThrowBinaryImageException(CorruptImageError,"CorruptImage",
             image->filename);
         prop_size -= (size_t) MagickMin(16, (size_t) amount);
         }
@@ -916,7 +922,7 @@ static MagickBooleanType ReadOneLayer(const ImageInfo *image_info,Image* image,
     }
   }
   if (EOFBlob(image) != MagickFalse)
-    ThrowBinaryException(CorruptImageError,"UnexpectedEndOfFile",
+    ThrowBinaryImageException(CorruptImageError,"UnexpectedEndOfFile",
       image->filename);
   if (foundPropEnd == MagickFalse)
     return(MagickFalse);
@@ -974,8 +980,8 @@ static MagickBooleanType ReadOneLayer(const ImageInfo *image_info,Image* image,
   /* read in the hierarchy */
   offset=SeekBlob(image, (MagickOffsetType) hierarchy_offset, SEEK_SET);
   if (offset != (MagickOffsetType) hierarchy_offset)
-    (void) ThrowMagickException(&image->exception,GetMagickModule(),
-      CorruptImageError,"InvalidImageHeader","`%s'",image->filename);
+    ThrowBinaryImageException(CorruptImageError,"InvalidImageHeader",
+      image->filename);
   if (load_hierarchy (image, inDocInfo, outLayer) == 0)
     return(MagickFalse);
 
@@ -1114,6 +1120,8 @@ static Image *ReadXCFImage(const ImageInfo *image_info,ExceptionInfo *exception)
       InheritException(exception,&image->exception);
       return(DestroyImageList(image));
     }
+  if (status != MagickFalse)
+    status=ResetImagePixels(image,exception);
   if (image_type == GIMP_INDEXED)
     ThrowReaderException(CoderError,"ColormapTypeNotSupported");
   if (image_type == GIMP_RGB)
@@ -1511,7 +1519,7 @@ ModuleExport size_t RegisterXCFImage(void)
   entry->decoder=(DecodeImageHandler *) ReadXCFImage;
   entry->magick=(IsImageFormatHandler *) IsXCF;
   entry->description=ConstantString("GIMP image");
-  entry->module=ConstantString("XCF");
+  entry->magick_module=ConstantString("XCF");
   entry->seekable_stream=MagickTrue;
   (void) RegisterMagickInfo(entry);
   return(MagickImageCoderSignature);

@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -112,18 +112,25 @@ MagickExport MagickBooleanType AcquireImageColormap(Image *image,
   assert(image->signature == MagickCoreSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
+  if (colors > MaxColormapSize)
+    {
+      image->colors=0;
+      image->storage_class=DirectClass;
+      ThrowBinaryImageException(ResourceLimitError,"MemoryAllocationFailed",
+        image->filename);
+    }
   image->colors=MagickMax(colors,1);
   if (image->colormap == (PixelPacket *) NULL)
-    image->colormap=(PixelPacket *) AcquireQuantumMemory(image->colors+1,
+    image->colormap=(PixelPacket *) AcquireQuantumMemory(image->colors+256,
       sizeof(*image->colormap));
   else
     image->colormap=(PixelPacket *) ResizeQuantumMemory(image->colormap,
-      image->colors+1,sizeof(*image->colormap));
+      image->colors+256,sizeof(*image->colormap));
   if (image->colormap == (PixelPacket *) NULL)
     {
       image->colors=0;
       image->storage_class=DirectClass;
-      ThrowBinaryException(ResourceLimitError,"MemoryAllocationFailed",
+      ThrowBinaryImageException(ResourceLimitError,"MemoryAllocationFailed",
         image->filename);
     }
   for (i=0; i < (ssize_t) image->colors; i++)
@@ -307,6 +314,7 @@ MagickExport MagickBooleanType SortColormapByIntensity(Image *image)
   assert(image->signature == MagickCoreSignature);
   if (image->storage_class != PseudoClass)
     return(MagickTrue);
+  exception=(&image->exception);
   /*
     Allocate memory for pixel indexes.
   */
@@ -331,7 +339,6 @@ MagickExport MagickBooleanType SortColormapByIntensity(Image *image)
   for (i=0; i < (ssize_t) image->colors; i++)
     pixels[(ssize_t) image->colormap[i].opacity]=(unsigned short) i;
   status=MagickTrue;
-  exception=(&image->exception);
   image_view=AcquireAuthenticCacheView(image,exception);
   for (y=0; y < (ssize_t) image->rows; y++)
   {

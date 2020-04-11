@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -364,7 +364,7 @@ static Image *ReadICONImage(const ImageInfo *image_info,
         length=icon_file.directory[i].size;
         if ((length < 16) || (~length < 16))
           ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
-        png=(unsigned char *) AcquireQuantumMemory(length+16,sizeof(*png));
+        png=(unsigned char *) AcquireQuantumMemory(length,sizeof(*png));
         if (png == (unsigned char *) NULL)
           ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
         (void) memcpy(png,"\211PNG\r\n\032\n\000\000\000\015",12);
@@ -372,8 +372,8 @@ static Image *ReadICONImage(const ImageInfo *image_info,
         png[13]=(unsigned char) (icon_info.planes >> 8);
         png[14]=(unsigned char) icon_info.bits_per_pixel;
         png[15]=(unsigned char) (icon_info.bits_per_pixel >> 8);
-        count=ReadBlob(image,length,png+16);
-        if (count != (ssize_t) length)
+        count=ReadBlob(image,length-16,png+16);
+        if (count != (ssize_t) (length-16))
           {
             png=(unsigned char *) RelinquishMagickMemory(png);
             ThrowReaderException(CorruptImageError,
@@ -381,7 +381,7 @@ static Image *ReadICONImage(const ImageInfo *image_info,
           }
         read_info=CloneImageInfo(image_info);
         (void) CopyMagickString(read_info->magick,"PNG",MaxTextExtent);
-        icon_image=BlobToImage(read_info,png,length+16,exception);
+        icon_image=BlobToImage(read_info,png,length,exception);
         read_info=DestroyImageInfo(read_info);
         png=(unsigned char *) RelinquishMagickMemory(png);
         if (icon_image == (Image *) NULL)
@@ -733,8 +733,8 @@ static Image *ReadICONImage(const ImageInfo *image_info,
         AcquireNextImage(image_info,image);
         if (GetNextImageInList(image) == (Image *) NULL)
           {
-            image=DestroyImageList(image);
-            return((Image *) NULL);
+            status=MagickFalse;
+            break;
           }
         image=SyncNextImageInList(image);
         status=SetImageProgress(image,LoadImagesTag,TellBlob(image),
@@ -744,6 +744,8 @@ static Image *ReadICONImage(const ImageInfo *image_info,
       }
   }
   (void) CloseBlob(image);
+  if (status == MagickFalse)
+    return(DestroyImageList(image));
   return(GetFirstImageInList(image));
 }
 
@@ -781,7 +783,7 @@ ModuleExport size_t RegisterICONImage(void)
   entry->adjoin=MagickFalse;
   entry->seekable_stream=MagickTrue;
   entry->description=ConstantString("Microsoft icon");
-  entry->module=ConstantString("ICON");
+  entry->magick_module=ConstantString("ICON");
   (void) RegisterMagickInfo(entry);
   entry=SetMagickInfo("ICO");
   entry->decoder=(DecodeImageHandler *) ReadICONImage;
@@ -789,7 +791,7 @@ ModuleExport size_t RegisterICONImage(void)
   entry->adjoin=MagickTrue;
   entry->seekable_stream=MagickTrue;
   entry->description=ConstantString("Microsoft icon");
-  entry->module=ConstantString("ICON");
+  entry->magick_module=ConstantString("ICON");
   (void) RegisterMagickInfo(entry);
   entry=SetMagickInfo("ICON");
   entry->decoder=(DecodeImageHandler *) ReadICONImage;
@@ -797,7 +799,7 @@ ModuleExport size_t RegisterICONImage(void)
   entry->adjoin=MagickFalse;
   entry->seekable_stream=MagickTrue;
   entry->description=ConstantString("Microsoft icon");
-  entry->module=ConstantString("ICON");
+  entry->magick_module=ConstantString("ICON");
   (void) RegisterMagickInfo(entry);
   return(MagickImageCoderSignature);
 }
@@ -1051,8 +1053,6 @@ static MagickBooleanType WriteICONImage(const ImageInfo *image_info,
               Colormapped ICON raster.
             */
             icon_info.bits_per_pixel=8;
-            if (next->colors <= 256)
-              icon_info.bits_per_pixel=8;
             if (next->colors <= 16)
               icon_info.bits_per_pixel=4;
             if (next->colors <= 2)

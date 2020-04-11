@@ -19,13 +19,13 @@
 %                                  2008.05.07                                 %
 %                                     v 0.9                                   %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -407,16 +407,17 @@ static Image *ReadIPLImage(const ImageInfo *image_info,ExceptionInfo *exception)
                  image->filename);
       break;
     }
-   if(t_count < ipl_info.z * ipl_info.time){
+   if (t_count < ipl_info.z * ipl_info.time)
+     {
       /*
        Proceed to next image.
        */
       AcquireNextImage(image_info, image);
       if (GetNextImageInList(image) == (Image *) NULL)
-      {
-        image=DestroyImageList(image);
-        return((Image *) NULL);
-      }
+        {
+          status=MagickFalse;
+          break;
+        }
       image=SyncNextImageInList(image);
       status=SetImageProgress(image,LoadImagesTag,TellBlob(image),
         GetBlobSize(image));
@@ -425,6 +426,8 @@ static Image *ReadIPLImage(const ImageInfo *image_info,ExceptionInfo *exception)
     }
   } while (t_count < ipl_info.z*ipl_info.time);
   CloseBlob(image);
+  if (status == MagickFalse)
+    return(DestroyImageList(image));
   return(GetFirstImageInList(image));
 }
 
@@ -455,7 +458,7 @@ ModuleExport size_t RegisterIPLImage(void)
   entry->magick=(IsImageFormatHandler *) IsIPL;
   entry->adjoin=MagickTrue;
   entry->description=ConstantString("IPL Image Sequence");
-  entry->module=ConstantString("IPL");
+  entry->magick_module=ConstantString("IPL");
   entry->endian_support=MagickTrue;
   entry->seekable_stream=MagickTrue;
   (void) RegisterMagickInfo(entry);

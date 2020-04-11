@@ -17,13 +17,13 @@
 %                                 March 2012                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -71,6 +71,11 @@
 #include <pango/pangocairo.h>
 #include <pango/pango-features.h>
 #endif
+
+/*
+  Define declarations.
+*/
+#define DefaultPANGODensity  96.0
 
 #if defined(MAGICKCORE_PANGOCAIRO_DELEGATE)
 /*
@@ -180,6 +185,8 @@ static Image *ReadPANGOImage(const ImageInfo *image_info,
   assert(exception->signature == MagickCoreSignature);
   image=AcquireImage(image_info);
   (void) ResetImagePage(image,"0x0+0+0");
+  if ((image->columns != 0) && (image->rows != 0))
+    (void) SetImageBackgroundColor(image);
   /*
     Format caption.
   */
@@ -191,15 +198,18 @@ static Image *ReadPANGOImage(const ImageInfo *image_info,
       property=InterpretImageProperties(image_info,image,option+6);
     else
       property=InterpretImageProperties(image_info,image,option);
-  (void) SetImageProperty(image,"caption",property);
-  property=DestroyString(property);
+  if (property != (char *) NULL)
+    {
+      (void) SetImageProperty(image,"caption",property);
+      property=DestroyString(property);
+    }
   caption=ConstantString(GetImageProperty(image,"caption"));
   /*
     Get context.
   */
   fontmap=pango_cairo_font_map_new();
   pango_cairo_font_map_set_resolution(PANGO_CAIRO_FONT_MAP(fontmap),
-    image->x_resolution == 0.0 ? 90.0 : image->x_resolution);
+    image->x_resolution == 0.0 ? DefaultPANGODensity : image->x_resolution);
   font_options=cairo_font_options_create();
   option=GetImageOption(image_info,"pango:hinting");
   if (option != (const char *) NULL)
@@ -299,8 +309,8 @@ static Image *ReadPANGOImage(const ImageInfo *image_info,
   option=GetImageOption(image_info,"pango:indent");
   if (option != (const char *) NULL)
     pango_layout_set_indent(layout,(int) ((StringToLong(option)*
-      (image->x_resolution == 0.0 ? 90.0 : image->x_resolution)*PANGO_SCALE+45)/
-      90.0+0.5));
+      (image->x_resolution == 0.0 ? DefaultPANGODensity : image->x_resolution)*
+      PANGO_SCALE+DefaultPANGODensity/2)/DefaultPANGODensity+0.5));
   switch (draw_info->align)
   {
     case CenterAlign: align=PANGO_ALIGN_CENTER; break;
@@ -320,6 +330,16 @@ static Image *ReadPANGOImage(const ImageInfo *image_info,
   if ((align != PANGO_ALIGN_CENTER) &&
       (draw_info->direction == RightToLeftDirection))
     align=(PangoAlignment) (PANGO_ALIGN_LEFT+PANGO_ALIGN_RIGHT-align);
+  option=GetImageOption(image_info,"pango:align");
+  if (option != (const char *) NULL) 
+    {
+      if (LocaleCompare(option,"center") == 0)
+        align=PANGO_ALIGN_CENTER;
+      if (LocaleCompare(option,"left") == 0)
+        align=PANGO_ALIGN_LEFT;
+      if (LocaleCompare(option,"right") == 0)
+        align=PANGO_ALIGN_RIGHT;
+    }
   pango_layout_set_alignment(layout,align);
   if (draw_info->font == (char *) NULL)
     description=pango_font_description_new();
@@ -357,8 +377,8 @@ static Image *ReadPANGOImage(const ImageInfo *image_info,
     {
       image->columns-=2*page.x;
       pango_layout_set_width(layout,(int) ((PANGO_SCALE*image->columns*
-        (image->x_resolution == 0.0 ? 90.0 : image->x_resolution)+45.0)/90.0+
-        0.5));
+        (image->x_resolution == 0.0 ? DefaultPANGODensity :
+        image->x_resolution)+DefaultPANGODensity/2)/DefaultPANGODensity+0.5));
     }
   if (image->rows == 0)
     {
@@ -369,8 +389,8 @@ static Image *ReadPANGOImage(const ImageInfo *image_info,
     {
       image->rows-=2*page.y;
       pango_layout_set_height(layout,(int) ((PANGO_SCALE*image->rows*
-        (image->y_resolution == 0.0 ? 90.0 : image->y_resolution)+45.0)/90.0+
-        0.5));
+        (image->y_resolution == 0.0 ? DefaultPANGODensity :
+        image->y_resolution)+DefaultPANGODensity/2)/DefaultPANGODensity+0.5));
     }
   status=SetImageExtent(image,image->columns,image->rows);
   if (status == MagickFalse)
@@ -508,7 +528,7 @@ ModuleExport size_t RegisterPANGOImage(void)
     entry->version=ConstantString(version);
   entry->adjoin=MagickFalse;
   entry->thread_support=MagickFalse;
-  entry->module=ConstantString("PANGO");
+  entry->magick_module=ConstantString("PANGO");
   (void) RegisterMagickInfo(entry);
   return(MagickImageCoderSignature);
 }

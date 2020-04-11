@@ -1,11 +1,11 @@
 #!/usr/bin/perl
-#  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization
+#  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
 #  dedicated to making software imaging solutions freely available.
 #
 #  You may not use this file except in compliance with the License.  You may
 #  obtain a copy of the License at
 #
-#    http://www.imagemagick.org/script/license.php
+#    https://imagemagick.org/script/license.php
 #
 #  Unless required by applicable law or agreed to in writing, software
 #  distributed under the License is distributed on an "AS IS" BASIS,
@@ -65,7 +65,7 @@ print("Flexible Image Transport System ...\n");
 testReadWrite( 'FITS:input.fits',
   'FITS:output.fits',
   q//,
-  '0aefecf82140beb2c1c36adf65b4b63ac5422e78896a324a0340ceb9c33cfc53' );
+  'f44631f7eec8311b2e0d8d2567ace65e55f6cf42378e777bccb705160587228b' );
 
 print("CompuServe graphics interchange format ...\n");
 ++$test;

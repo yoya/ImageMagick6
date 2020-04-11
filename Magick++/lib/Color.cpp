@@ -236,7 +236,7 @@ Magick::Color::operator std::string() const
   if (!isValid())
     return std::string("none");
 
-  pixel.colorspace=RGBColorspace;
+  pixel.colorspace=sRGBColorspace;
   pixel.matte=_pixelType == RGBAPixel ? MagickTrue : MagickFalse;
   pixel.depth=MAGICKCORE_QUANTUM_DEPTH;
   pixel.red=_pixel->red;
@@ -255,7 +255,7 @@ bool Magick::Color::isValid(void) const
 
 void Magick::Color::isValid(bool valid_)
 {
-  if ((valid_ && isValid()) || (!valid_ && !isValid()))
+  if (bool(valid_) == bool(isValid()))
     return;
 
   if (!_pixelOwn)

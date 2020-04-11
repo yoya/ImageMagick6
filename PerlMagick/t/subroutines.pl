@@ -1,10 +1,10 @@
-#  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization
+#  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
 #  dedicated to making software imaging solutions freely available.
 #
 #  You may not use this file except in compliance with the License.  You may
 #  obtain a copy of the License at
 #
-#    http://www.imagemagick.org/script/license.php
+#    https://imagemagick.org/script/license.php
 #
 #  Unless required by applicable law or agreed to in writing, software
 #  distributed under the License is distributed on an "AS IS" BASIS,
@@ -45,6 +45,8 @@ sub testCompositeCompare {
 
   $errorinfo='';
   $status='';
+  $normalized_mean_error_max+=1.0e-12;
+  $normalized_maximum_error_max+=1.0e-12;
 
   #print( $filter, " ...\n" );
 
@@ -291,6 +293,8 @@ sub testReadCompare {
   my($srcimage, $refimage, $normalized_mean_error, $normalized_maximum_error);
 
   $errorinfo='';
+  $normalized_mean_error_max+=1.0e-12;
+  $normalized_maximum_error_max+=1.0e-12;
 
   # Create images
   $srcimage=Image::Magick->new;
@@ -567,6 +571,8 @@ sub testReadWriteCompare {
     $normalized_maximum_error);
 
   $errorinfo='';
+  $normalized_mean_error_max+=1.0e-12;
+  $normalized_maximum_error_max+=1.0e-12;
 
   $image=Image::Magick->new;
   $refimage=Image::Magick->new;  
@@ -1157,6 +1163,8 @@ sub testFilterCompare {
 
   $errorinfo='';
   $status='';
+  $normalized_mean_error_max+=1.0e-12;
+  $normalized_maximum_error_max+=1.0e-12;
 
   #print( $filter, " ...\n" );
 

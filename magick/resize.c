@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -155,10 +155,8 @@ static MagickRealType Blackman(const MagickRealType x,
     Refactored by Chantal Racette and Nicolas Robidoux to one trig call and
     five flops.
   */
-  const MagickRealType cosine=cos((double) (MagickPI*x));
-
+  const MagickRealType cosine = cos((double) (MagickPI*x));
   magick_unreferenced(resize_filter);
-
   return(0.34+cosine*(0.5+cosine*0.16));
 }
 
@@ -173,11 +171,9 @@ static MagickRealType Bohman(const MagickRealType x,
     taking advantage of the fact that the support of Bohman is 1.0 (so that we
     know that sin(pi x) >= 0).
   */
-  const double cosine=cos((double) (MagickPI*x));
-  const double sine=sqrt(1.0-cosine*cosine);
-
+  const double cosine = cos((double) (MagickPI*x));
+  const double sine = sqrt(1.0-cosine*cosine);
   magick_unreferenced(resize_filter);
-
   return((MagickRealType) ((1.0-x)*cosine+(1.0/MagickPI)*sine));
 }
 
@@ -203,8 +199,7 @@ static MagickRealType Cosine(const MagickRealType x,
       cos((pi/2)*x).
   */
   magick_unreferenced(resize_filter);
-
-  return((MagickRealType)cos((double) (MagickPI2*x)));
+  return((MagickRealType) cos((double) (MagickPI2*x)));
 }
 
 static MagickRealType CubicBC(const MagickRealType x,
@@ -291,10 +286,8 @@ static MagickRealType Hanning(const MagickRealType x,
     Cosine window function:
       0.5+0.5*cos(pi*x).
   */
-  const MagickRealType cosine=cos((double) (MagickPI*x));
-
+  const MagickRealType cosine = cos((double) (MagickPI*x));
   magick_unreferenced(resize_filter);
-
   return(0.5+0.5*cosine);
 }
 
@@ -305,10 +298,8 @@ static MagickRealType Hamming(const MagickRealType x,
     Offset cosine window function:
      .54 + .46 cos(pi x).
   */
-  const MagickRealType cosine=cos((double) (MagickPI*x));
-
+  const MagickRealType cosine = cos((double) (MagickPI*x));
   magick_unreferenced(resize_filter);
-
   return(0.54+0.46*cosine);
 }
 
@@ -1093,10 +1084,9 @@ MagickExport ResizeFilter *AcquireResizeFilter(const Image *image,
     Adjust window function scaling to match windowing support for
     weighting function.  This avoids a division on every filter call.
   */
-  resize_filter->scale/=resize_filter->window_support;
-
+  resize_filter->scale*=PerceptibleReciprocal(resize_filter->window_support);
   /*
-   * Set Cubic Spline B,C values, calculate Cubic coefficients.
+    Set Cubic Spline B,C values, calculate Cubic coefficients.
   */
   B=0.0;
   C=0.0;
@@ -1768,9 +1758,10 @@ MagickExport Image *InterpolativeResizeImage(const Image *image,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_InterpolativeResizeImage)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(image,InterpolativeResizeImageTag,progress++,
+        progress++;
+        proceed=SetImageProgress(image,InterpolativeResizeImageTag,progress,
           image->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
@@ -2196,9 +2187,10 @@ MagickExport Image *MagnifyImage(const Image *image,ExceptionInfo *exception)
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_MagnifyImage)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(image,MagnifyImageTag,progress++,image->rows);
+        progress++;
+        proceed=SetImageProgress(image,MagnifyImageTag,progress,image->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
       }
@@ -2414,9 +2406,11 @@ static ContributionInfo **AcquireContributionThreadSet(const size_t count)
   return(contribution);
 }
 
-static MagickBooleanType HorizontalFilter(const ResizeFilter *resize_filter,
-  const Image *image,Image *resize_image,const MagickRealType x_factor,
-  const MagickSizeType span,MagickOffsetType *offset,ExceptionInfo *exception)
+static MagickBooleanType HorizontalFilter(
+  const ResizeFilter *magick_restrict resize_filter,
+  const Image *magick_restrict image,Image *magick_restrict resize_image,
+  const MagickRealType x_factor,const MagickSizeType span,
+  MagickOffsetType *magick_restrict offset,ExceptionInfo *exception)
 {
 #define ResizeImageTag  "Resize/Image"
 
@@ -2476,7 +2470,7 @@ static MagickBooleanType HorizontalFilter(const ResizeFilter *resize_filter,
   image_view=AcquireVirtualCacheView(image,exception);
   resize_view=AcquireAuthenticCacheView(resize_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static) shared(status) \
+  #pragma omp parallel for schedule(static) shared(status,offset) \
     magick_number_threads(image,resize_image,resize_image->columns,1)
 #endif
   for (x=0; x < (ssize_t) resize_image->columns; x++)
@@ -2648,9 +2642,10 @@ static MagickBooleanType HorizontalFilter(const ResizeFilter *resize_filter,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_HorizontalFilter)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(image,ResizeImageTag,(*offset)++,span);
+        (*offset)++;
+        proceed=SetImageProgress(image,ResizeImageTag,*offset,span);
         if (proceed == MagickFalse)
           status=MagickFalse;
       }
@@ -2661,9 +2656,11 @@ static MagickBooleanType HorizontalFilter(const ResizeFilter *resize_filter,
   return(status);
 }
 
-static MagickBooleanType VerticalFilter(const ResizeFilter *resize_filter,
-  const Image *image,Image *resize_image,const MagickRealType y_factor,
-  const MagickSizeType span,MagickOffsetType *offset,ExceptionInfo *exception)
+static MagickBooleanType VerticalFilter(
+  const ResizeFilter *magick_restrict resize_filter,
+  const Image *magick_restrict image,Image *magick_restrict resize_image,
+  const MagickRealType y_factor,const MagickSizeType span,
+  MagickOffsetType *magick_restrict offset,ExceptionInfo *exception)
 {
   CacheView
     *image_view,
@@ -2721,7 +2718,7 @@ static MagickBooleanType VerticalFilter(const ResizeFilter *resize_filter,
   image_view=AcquireVirtualCacheView(image,exception);
   resize_view=AcquireAuthenticCacheView(resize_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static) shared(status) \
+  #pragma omp parallel for schedule(static) shared(status,offset) \
     magick_number_threads(image,resize_image,resize_image->rows,1)
 #endif
   for (y=0; y < (ssize_t) resize_image->rows; y++)
@@ -2894,9 +2891,10 @@ static MagickBooleanType VerticalFilter(const ResizeFilter *resize_filter,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_VerticalFilter)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(image,ResizeImageTag,(*offset)++,span);
+        (*offset)++;
+        proceed=SetImageProgress(image,ResizeImageTag,*offset,span);
         if (proceed == MagickFalse)
           status=MagickFalse;
       }
@@ -3200,9 +3198,10 @@ MagickExport Image *SampleImage(const Image *image,const size_t columns,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_SampleImage)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(image,SampleImageTag,progress++,image->rows);
+        progress++;
+        proceed=SetImageProgress(image,SampleImageTag,progress,image->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
       }
@@ -3708,7 +3707,7 @@ MagickExport Image *ThumbnailImage(const Image *image,const size_t columns,
 #define SampleFactor  5
 
   char
-    *url,
+    filename[MaxTextExtent],
     value[MaxTextExtent];
 
   const char
@@ -3778,7 +3777,8 @@ MagickExport Image *ThumbnailImage(const Image *image,const size_t columns,
     (void) FormatLocaleString(value,MaxTextExtent,"file://%s",
       image->magick_filename);
   (void) SetImageProperty(thumbnail_image,"Thumb::URI",value);
-  (void) CopyMagickString(value,image->magick_filename,MaxTextExtent);
+  GetPathComponent(image->magick_filename,TailPath,filename);
+  (void) CopyMagickString(value,filename,MaxTextExtent);
   if (GetPathAttributes(image->filename,&attributes) != MagickFalse)
     {
       (void) FormatLocaleString(value,MaxTextExtent,"%.20g",(double)
@@ -3793,9 +3793,7 @@ MagickExport Image *ThumbnailImage(const Image *image,const size_t columns,
   (void) FormatLocaleString(value,MaxTextExtent,"image/%s",image->magick);
   LocaleLower(value);
   (void) SetImageProperty(thumbnail_image,"Thumb::Mimetype",value);
-  url=GetMagickHomeURL();
-  (void) SetImageProperty(thumbnail_image,"software",url);
-  url=DestroyString(url);
+  (void) SetImageProperty(thumbnail_image,"software",MagickAuthoritativeURL);
   (void) FormatLocaleString(value,MaxTextExtent,"%.20g",(double)
     image->magick_columns);
   (void) SetImageProperty(thumbnail_image,"Thumb::Image::Width",value);

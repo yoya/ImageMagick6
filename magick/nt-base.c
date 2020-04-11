@@ -17,13 +17,13 @@
 %                                December 1996                                %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -118,6 +118,9 @@ static SemaphoreInfo
 
 static WSADATA
   *wsaData = (WSADATA*) NULL;
+
+static size_t
+  long_paths_enabled = 2;
 
 struct
 {
@@ -622,9 +625,25 @@ MagickPrivate double NTElapsedTime(void)
       filetime64;
   } elapsed_time;
 
+  LARGE_INTEGER
+    performance_count;
+
+  static LARGE_INTEGER
+    frequency = { 0 };
+
   SYSTEMTIME
     system_time;
 
+  if (frequency.QuadPart == 0)
+    {
+      if (QueryPerformanceFrequency(&frequency) == 0)
+        frequency.QuadPart=1;
+    }
+  if (frequency.QuadPart > 1)
+    {
+      QueryPerformanceCounter(&performance_count);
+      return((double) performance_count.QuadPart/frequency.QuadPart);
+    }
   GetSystemTime(&system_time);
   SystemTimeToFileTime(&system_time,&elapsed_time.filetime);
   return((double) 1.0e-7*elapsed_time.filetime64);
@@ -916,13 +935,13 @@ MagickPrivate const char *NTGetLibraryError(void)
 */
 void *NTGetLibrarySymbol(void *handle,const char *name)
 {
-  LPFNDLLFUNC1
-    lpfnDllFunc1;
+  FARPROC
+    proc_address;
 
-  lpfnDllFunc1=(LPFNDLLFUNC1) GetProcAddress((HINSTANCE) handle,name);
-  if (!lpfnDllFunc1)
+  proc_address=GetProcAddress((HMODULE) handle,(LPCSTR) name);
+  if (proc_address == (FARPROC) NULL)
     return((void *) NULL);
-  return((void *) lpfnDllFunc1);
+  return((void *) proc_address);
 }
 
 /*
@@ -968,33 +987,6 @@ MagickPrivate MagickBooleanType NTGetModulePath(const char *module,char *path)
   if (length != 0)
     GetPathComponent(module_path,HeadPath,path);
   return(MagickTrue);
-}
-
-/*
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%                                                                             %
-%                                                                             %
-%                                                                             %
-+    N T G e t P a g e S i z e                                                %
-%                                                                             %
-%                                                                             %
-%                                                                             %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%
-%  NTGetPageSize() returns the memory page size under Windows.
-%
-%  The format of the NTPageSize
-%
-%      NTPageSize()
-%
-*/
-MagickPrivate ssize_t NTGetPageSize(void)
-{
-  SYSTEM_INFO
-    system_info;
-
-   GetSystemInfo(&system_info);
-   return((ssize_t) system_info.dwPageSize);
 }
 
 /*
@@ -1157,8 +1149,8 @@ static int NTLocateGhostscript(DWORD flags,int *root_index,
   return(status);
 }
 
-static int NTGhostscriptGetString(const char *name,BOOL *is_64_bit,
-  char *value,const size_t length)
+static int NTGhostscriptGetString(const char *name,BOOL *is_64_bit,char *value,
+  const size_t length)
 {
   char
     buffer[MaxTextExtent],
@@ -1168,16 +1160,16 @@ static int NTGhostscriptGetString(const char *name,BOOL *is_64_bit,
     extent;
 
   static const char
-    *product_family=(const char *) NULL;
+    *product_family = (const char *) NULL;
 
   static BOOL
-    is_64_bit_version=FALSE;
+    is_64_bit_version = FALSE;
 
   static int
-    flags=0,
-    major_version=0,
-    minor_version=0,
-    root_index=0;
+    flags = 0,
+    major_version = 0,
+    minor_version = 0,
+    root_index = 0;
 
   /*
     Get a string from the installed Ghostscript.
@@ -1248,8 +1240,7 @@ static int NTGhostscriptGetString(const char *name,BOOL *is_64_bit,
   (void) FormatLocaleString(buffer,MaxTextExtent,"SOFTWARE\\%s\\%d.%02d",
     product_family,major_version,minor_version);
   extent=(int) length;
-  if (NTGetRegistryValue(registry_roots[root_index].hkey,buffer,flags,name,
-    value,&extent) == 0)
+  if (NTGetRegistryValue(registry_roots[root_index].hkey,buffer,flags,name,value,&extent) == 0)
     {
       (void) LogMagickEvent(ConfigureEvent,GetMagickModule(),
         "registry: \"%s\\%s\\%s\"=\"%s\"",registry_roots[root_index].name,
@@ -1271,7 +1262,6 @@ MagickPrivate int NTGhostscriptDLL(char *path,int length)
   if ((*dll == '\0') &&
       (NTGhostscriptGetString("GS_DLL",&is_64_bit_version,dll,sizeof(dll)) == FALSE))
     return(FALSE);
-
 #if defined(_WIN64)
   if (!is_64_bit_version)
     return(FALSE);
@@ -1393,7 +1383,7 @@ MagickPrivate int NTGhostscriptEXE(char *path,int length)
 %
 %  The format of the NTGhostscriptFonts method is:
 %
-%      int NTGhostscriptFonts(char *path, int length)
+%      int NTGhostscriptFonts(char *path,int length)
 %
 %  A description of each parameter follows:
 %
@@ -1432,6 +1422,10 @@ MagickPrivate int NTGhostscriptFonts(char *path,int length)
     if (q != (char *) NULL)
       *q='\0';
     (void) FormatLocaleString(filename,MaxTextExtent,"%s%sfonts.dir",path,
+      DirectorySeparator);
+    if (IsPathAccessible(filename) != MagickFalse)
+      return(TRUE);
+    (void) FormatLocaleString(filename,MaxTextExtent,"%s%sn019003l.pfb",path,
       DirectorySeparator);
     if (IsPathAccessible(filename) != MagickFalse)
       return(TRUE);
@@ -1624,6 +1618,72 @@ MagickPrivate void NTInitializeWinsock(MagickBooleanType use_lock)
 %                                                                             %
 %                                                                             %
 %                                                                             %
+%   N T L o n g P a t h s E n a b l e d                                       %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  NTLongPathsEnabled() returns a boolean indicating whether long paths are
+$  enabled.
+%
+%  The format of the NTLongPathsEnabled method is:
+%
+%      MagickBooleanType NTLongPathsEnabled()
+%
+*/
+MagickExport MagickBooleanType NTLongPathsEnabled()
+{
+  if (long_paths_enabled == 2)
+    {
+      DWORD
+        size,
+        type,
+        value;
+
+      HKEY
+        registry_key;
+
+      LONG
+        status;
+
+      registry_key=(HKEY) INVALID_HANDLE_VALUE;
+      status=RegOpenKeyExA(HKEY_LOCAL_MACHINE,
+        "SYSTEM\\CurrentControlSet\\Control\\FileSystem",0,KEY_READ,
+        &registry_key);
+      if (status != ERROR_SUCCESS)
+        {
+          long_paths_enabled=0;
+          RegCloseKey(registry_key);
+          return(MagickFalse);
+        }
+      value=0;
+      status=RegQueryValueExA(registry_key,"LongPathsEnabled",0,&type,NULL,
+        NULL);
+      if ((status != ERROR_SUCCESS) || (type != REG_DWORD))
+        {
+          long_paths_enabled=0;
+          RegCloseKey(registry_key);
+          return(MagickFalse);
+        }
+      status=RegQueryValueExA(registry_key,"LongPathsEnabled",0,&type,
+        (LPBYTE) &value,&size);
+      RegCloseKey(registry_key);
+      if (status != ERROR_SUCCESS)
+        {
+          long_paths_enabled=0;
+          return(MagickFalse);
+        }
+      long_paths_enabled=(size_t) value;
+    }
+  return(long_paths_enabled == 1 ? MagickTrue : MagickFalse);
+}
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
 +  N T M a p M e m o r y                                                      %
 %                                                                             %
 %                                                                             %
@@ -1741,18 +1801,15 @@ MagickPrivate DIR *NTOpenDirectory(const char *path)
   if (length == 0)
     return((DIR *) NULL);
   length=MultiByteToWideChar(CP_UTF8,0,DirectorySeparator,-1,
-    directory_separator,strlen(DirectorySeparator)+1);
+    directory_separator,(int) strlen(DirectorySeparator)+1);
   if (length == 0)
     return((DIR *) NULL);
   if (wcsncat(file_specification,directory_separator,
         MaxTextExtent-wcslen(file_specification)-1) == (wchar_t *) NULL)
     return((DIR *) NULL);
   entry=(DIR *) AcquireCriticalMemory(sizeof(DIR));
-  if (entry != (DIR *) NULL)
-    {
-      entry->firsttime=TRUE;
-      entry->hSearch=FindFirstFileW(file_specification,&entry->Win32FindData);
-    }
+  entry->firsttime=TRUE;
+  entry->hSearch=FindFirstFileW(file_specification,&entry->Win32FindData);
   if (entry->hSearch == INVALID_HANDLE_VALUE)
     {
       if(wcsncat(file_specification,L"*.*",
@@ -2165,40 +2222,6 @@ MagickPrivate unsigned char *NTResourceToBlob(const char *id)
 %                                                                             %
 %                                                                             %
 %                                                                             %
-%   N T S e e k D i r e c t o r y                                             %
-%                                                                             %
-%                                                                             %
-%                                                                             %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%
-%  NTSeekDirectory() sets the position of the next NTReadDirectory() operation
-%  on the directory stream.
-%
-%  The format of the NTSeekDirectory method is:
-%
-%      void NTSeekDirectory(DIR *entry,ssize_t position)
-%
-%  A description of each parameter follows:
-%
-%    o entry: Specifies a pointer to a DIR structure.
-%
-%    o position: specifies the position associated with the directory
-%      stream.
-%
-*/
-MagickPrivate void NTSeekDirectory(DIR *entry,ssize_t position)
-{
-  (void) LogMagickEvent(TraceEvent,GetMagickModule(),"...");
-  assert(entry != (DIR *) NULL);
-  (void) entry;
-  (void) position;
-}
-
-/*
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%                                                                             %
-%                                                                             %
-%                                                                             %
 %   N T S e t S e a r c h P a t h                                             %
 %                                                                             %
 %                                                                             %
@@ -2228,40 +2251,6 @@ MagickPrivate int NTSetSearchPath(const char *path)
   if (path != (char *) NULL)
     lt_slsearchpath=AcquireString(path);
 #endif
-  return(0);
-}
-
-/*
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%                                                                             %
-%                                                                             %
-%                                                                             %
-+  N T S y n c M e m o r y                                                    %
-%                                                                             %
-%                                                                             %
-%                                                                             %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%
-%  NTSyncMemory() emulates the Unix method of the same name.
-%
-%  The format of the NTSyncMemory method is:
-%
-%      int NTSyncMemory(void *address,size_t length,int flags)
-%
-%  A description of each parameter follows:
-%
-%    o address: the address of the binary large object.
-%
-%    o length: the length of the binary large object.
-%
-%    o flags: Option flags (ignored for Windows).
-%
-*/
-MagickPrivate int NTSyncMemory(void *address,size_t length,int flags)
-{
-  (void) flags;
-  if (FlushViewOfFile(address,length) == MagickFalse)
-    return(-1);
   return(0);
 }
 
@@ -2447,7 +2436,7 @@ MagickPrivate ssize_t NTSystemConfiguration(int name)
 {
   switch (name)
   {
-    case _SC_PAGESIZE:
+    case _SC_PAGE_SIZE:
     {
       SYSTEM_INFO
         system_info;
@@ -2457,35 +2446,17 @@ MagickPrivate ssize_t NTSystemConfiguration(int name)
     }
     case _SC_PHYS_PAGES:
     {
-      HMODULE
-        handle;
-
-      LPFNDLLFUNC2
-        module;
-
-      NTMEMORYSTATUSEX
+      MEMORYSTATUSEX
         status;
 
       SYSTEM_INFO
         system_info;
 
-      handle=GetModuleHandle("kernel32.dll");
-      if (handle == (HMODULE) NULL)
+      status.dwLength=sizeof(status);
+      if (GlobalMemoryStatusEx(&status) == 0)
         return(0L);
       GetSystemInfo(&system_info);
-      module=(LPFNDLLFUNC2) NTGetLibrarySymbol(handle,"GlobalMemoryStatusEx");
-      if (module == (LPFNDLLFUNC2) NULL)
-        {
-          MEMORYSTATUS
-            global_status;
-
-          GlobalMemoryStatus(&global_status);
-          return((ssize_t) global_status.dwTotalPhys/system_info.dwPageSize/4);
-        }
-      status.dwLength=sizeof(status);
-      if (module(&status) == 0)
-        return(0L);
-      return((ssize_t) status.ullTotalPhys/system_info.dwPageSize/4);
+      return((ssize_t) status.ullTotalPhys/system_info.dwPageSize);
     }
     case _SC_OPEN_MAX:
       return(2048);
@@ -2493,36 +2464,6 @@ MagickPrivate ssize_t NTSystemConfiguration(int name)
       break;
   }
   return(-1);
-}
-
-/*
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%                                                                             %
-%                                                                             %
-%                                                                             %
-%   N T T e l l D i r e c t o r y                                             %
-%                                                                             %
-%                                                                             %
-%                                                                             %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%
-%  NTTellDirectory() returns the current location associated with the named
-%  directory stream.
-%
-%  The format of the NTTellDirectory method is:
-%
-%      ssize_t NTTellDirectory(DIR *entry)
-%
-%  A description of each parameter follows:
-%
-%    o entry: Specifies a pointer to a DIR structure.
-%
-*/
-MagickPrivate ssize_t NTTellDirectory(DIR *entry)
-{
-  assert(entry != (DIR *) NULL);
-  (void) entry;
-  return(0);
 }
 
 /*
@@ -2758,10 +2699,14 @@ MagickPrivate void NTWindowsGenesis(void)
         debug;
 
       debug=_CrtSetDbgFlag(_CRTDBG_REPORT_FLAG);
-      debug|=_CRTDBG_CHECK_ALWAYS_DF | _CRTDBG_DELAY_FREE_MEM_DF |
-        _CRTDBG_LEAK_CHECK_DF;
+      //debug |= _CRTDBG_CHECK_ALWAYS_DF;
+      debug |= _CRTDBG_DELAY_FREE_MEM_DF;
+      debug |= _CRTDBG_LEAK_CHECK_DF;
       (void) _CrtSetDbgFlag(debug);
-      _ASSERTE(_CrtCheckMemory());
+
+      //_ASSERTE(_CrtCheckMemory());
+
+      //_CrtSetBreakAlloc(42);
     }
 #endif
 #if defined(MAGICKCORE_INSTALLED_SUPPORT)

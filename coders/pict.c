@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -326,18 +326,18 @@ static MagickBooleanType
 %
 */
 
-static unsigned char *ExpandBuffer(unsigned char *pixels,
-  MagickSizeType *bytes_per_line,const unsigned int bits_per_pixel)
+static const unsigned char *UnpackScanline(
+  const unsigned char *magick_restrict pixels,const unsigned int bits_per_pixel,
+    unsigned char *scanline,MagickSizeType *bytes_per_line)
 {
+  register const unsigned char
+    *p;
+
   register ssize_t
     i;
 
   register unsigned char
-    *p,
     *q;
-
-  static unsigned char
-    scanline[8*256];
 
   p=pixels;
   q=scanline;
@@ -403,11 +403,13 @@ static unsigned char *DecodeImage(Image *blob,Image *image,
   MagickSizeType
     number_pixels;
 
+  register const unsigned char
+    *p;
+
   register ssize_t
     i;
 
   register unsigned char
-    *p,
     *q;
 
   size_t
@@ -424,7 +426,8 @@ static unsigned char *DecodeImage(Image *blob,Image *image,
 
   unsigned char
     *pixels,
-    *scanline;
+    *scanline,
+    unpack_buffer[8*256];
 
   /*
     Determine pixel buffer size.
@@ -445,7 +448,7 @@ static unsigned char *DecodeImage(Image *blob,Image *image,
     bytes_per_line=width;
   row_bytes=(size_t) (image->columns | 0x8000);
   if (image->storage_class == DirectClass)
-    row_bytes=(size_t) ((4*image->columns) | 0x8000);
+    row_bytes=(size_t) (4*(image->columns | 0x8000));
   /*
     Allocate pixel and scanline buffer.
   */
@@ -479,7 +482,7 @@ static unsigned char *DecodeImage(Image *blob,Image *image,
             status=MagickFalse;
             break;
           }
-        p=ExpandBuffer(scanline,&number_pixels,bits_per_pixel);
+        p=UnpackScanline(scanline,bits_per_pixel,unpack_buffer,&number_pixels);
         if ((q+number_pixels) > (pixels+(*extent)))
           {
             status=MagickFalse;
@@ -518,7 +521,8 @@ static unsigned char *DecodeImage(Image *blob,Image *image,
         {
           length=(size_t) ((scanline[j] & 0xff)+1);
           number_pixels=length*bytes_per_pixel;
-          p=ExpandBuffer(scanline+j+1,&number_pixels,bits_per_pixel);
+          p=UnpackScanline(scanline+j+1,bits_per_pixel,unpack_buffer,
+            &number_pixels);
           if ((q-pixels+number_pixels) <= *extent)
             (void) memcpy(q,p,(size_t) number_pixels);
           q+=number_pixels;
@@ -528,7 +532,8 @@ static unsigned char *DecodeImage(Image *blob,Image *image,
         {
           length=(size_t) (((scanline[j] ^ 0xff) & 0xff)+2);
           number_pixels=bytes_per_pixel;
-          p=ExpandBuffer(scanline+j+1,&number_pixels,bits_per_pixel);
+          p=UnpackScanline(scanline+j+1,bits_per_pixel,unpack_buffer,
+            &number_pixels);
           for (i=0; i < (ssize_t) length; i++)
           {
             if ((q-pixels+number_pixels) <= *extent)
@@ -803,9 +808,11 @@ static MagickBooleanType ReadRectangle(Image *image,PICTRectangle *rectangle)
   rectangle->left=(short) ReadBlobMSBShort(image);
   rectangle->bottom=(short) ReadBlobMSBShort(image);
   rectangle->right=(short) ReadBlobMSBShort(image);
-  if ((EOFBlob(image) != MagickFalse) ||
-      ((rectangle->bottom-rectangle->top) <= 0) ||
-      ((rectangle->right-rectangle->left) <= 0))
+  if (((EOFBlob(image) != MagickFalse) ||
+      (((rectangle->bottom | rectangle->top |
+         rectangle->right | rectangle->left ) & 0x8000) != 0) ||
+      (rectangle->bottom < rectangle->top) ||
+      (rectangle->right < rectangle->left)))
     return(MagickFalse);
   return(MagickTrue);
 }
@@ -969,6 +976,7 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
       code=ReadBlobByte(image);
     if (version == 2)
       code=ReadBlobMSBSignedShort(image);
+    code&=0xffff;
     if (code < 0)
       break;
     if (code == 0)
@@ -991,6 +999,9 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
               Clipping rectangle.
             */
             length=ReadBlobMSBShort(image);
+            if ((MagickSizeType) length > GetBlobSize(image))
+              ThrowPICTException(CorruptImageError,
+                "InsufficientImageDataInFile");
             if (length != 0x000a)
               {
                 for (i=0; i < (ssize_t) (length-2); i++)
@@ -1042,6 +1053,9 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
             if (pattern != 1)
               ThrowPICTException(CorruptImageError,"UnknownPatternType");
             length=ReadBlobMSBShort(image);
+            if ((MagickSizeType) length > GetBlobSize(image))
+              ThrowPICTException(CorruptImageError,
+                "InsufficientImageDataInFile");
             if (ReadRectangle(image,&frame) == MagickFalse)
               ThrowPICTException(CorruptImageError,"ImproperImageHeader");
             if (ReadPixmap(image,&pixmap) == MagickFalse)
@@ -1053,6 +1067,9 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
             (void) ReadBlobMSBLong(image);
             flags=(ssize_t) ReadBlobMSBShort(image);
             length=ReadBlobMSBShort(image);
+            if ((MagickSizeType) length > GetBlobSize(image))
+              ThrowPICTException(CorruptImageError,
+                "InsufficientImageDataInFile");
             for (i=0; i <= (ssize_t) length; i++)
               (void) ReadBlobMSBLong(image);
             width=(size_t) (frame.bottom-frame.top);
@@ -1113,6 +1130,9 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
               Skip polygon or region.
             */
             length=ReadBlobMSBShort(image);
+            if ((MagickSizeType) length > GetBlobSize(image))
+              ThrowPICTException(CorruptImageError,
+                "InsufficientImageDataInFile");
             for (i=0; i < (ssize_t) (length-2); i++)
               if (ReadBlobByte(image) == EOF)
                 break;
@@ -1234,6 +1254,9 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
                   Skip region.
                 */
                 length=ReadBlobMSBShort(image);
+                if ((MagickSizeType) length > GetBlobSize(image))
+                  ThrowPICTException(CorruptImageError,
+                    "InsufficientImageDataInFile");
                 for (i=0; i < (ssize_t) (length-2); i++)
                   if (ReadBlobByte(image) == EOF)
                     break;
@@ -1267,7 +1290,7 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
               {
                 if (tile_image->storage_class == PseudoClass)
                   {
-                    index=ConstrainColormapIndex(tile_image,*p);
+                    index=ConstrainColormapIndex(tile_image,(ssize_t) *p);
                     SetPixelIndex(indexes+x,index);
                     SetPixelRed(q,
                       tile_image->colormap[(ssize_t) index].red);
@@ -1355,6 +1378,9 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
             */
             type=ReadBlobMSBShort(image);
             length=ReadBlobMSBShort(image);
+            if ((MagickSizeType) length > GetBlobSize(image))
+              ThrowPICTException(CorruptImageError,
+                "InsufficientImageDataInFile");
             if (length == 0)
               break;
             (void) ReadBlobMSBLong(image);
@@ -1435,61 +1461,49 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
       continue;
     if (code == 0x8200)
       {
-        char
-          filename[MaxTextExtent];
-
-        FILE
-          *file;
-
-        int
-          unique_file;
-
         /*
           Embedded JPEG.
         */
         jpeg=MagickTrue;
-        read_info=CloneImageInfo(image_info);
-        SetImageInfoBlob(read_info,(void *) NULL,0);
-        file=(FILE *) NULL;
-        unique_file=AcquireUniqueFileResource(filename);
-        (void) FormatLocaleString(read_info->filename,MaxTextExtent,"jpeg:%s",
-          filename);
-        if (unique_file != -1)
-          file=fdopen(unique_file,"wb");
-        if ((unique_file == -1) || (file == (FILE *) NULL))
-          {
-            (void) RelinquishUniqueFileResource(read_info->filename);
-            (void) CopyMagickString(image->filename,read_info->filename,
-              MaxTextExtent);
-            ThrowPICTException(FileOpenError,"UnableToCreateTemporaryFile");
-          }
         length=ReadBlobMSBLong(image);
+        if ((MagickSizeType) length > GetBlobSize(image))
+          ThrowPICTException(CorruptImageError,"InsufficientImageDataInFile");
         if (length > 154)
           {
+            const void
+              *stream;
+
+            ssize_t
+              count;
+
+            unsigned char
+              *pixels;
+
             for (i=0; i < 6; i++)
               (void) ReadBlobMSBLong(image);
             if (ReadRectangle(image,&frame) == MagickFalse)
-              {
-                (void) fclose(file);
-                (void) RelinquishUniqueFileResource(read_info->filename);
-                ThrowPICTException(CorruptImageError,"ImproperImageHeader");
-              }
+              ThrowPICTException(CorruptImageError,"ImproperImageHeader");
             for (i=0; i < 122; i++)
               if (ReadBlobByte(image) == EOF)
                 break;
-            for (i=0; i < (ssize_t) (length-154); i++)
-            {
-              c=ReadBlobByte(image);
-              if (c == EOF)
-                break;
-              (void) fputc(c,file);
-            }
+            length-=154;
+            pixels=(unsigned char *) AcquireQuantumMemory(length,
+              sizeof(*pixels));
+            if (pixels == (unsigned char *) NULL)
+              ThrowPICTException(ResourceLimitError,"MemoryAllocationFailed");
+            stream=ReadBlobStream(image,length,pixels,&count);
+            if (count != (ssize_t) length)
+              {
+                pixels=(unsigned char *) RelinquishMagickMemory(pixels);
+                ThrowPICTException(CorruptImageError,"ImproperImageHeader");
+              }
+            read_info=AcquireImageInfo();
+            (void) FormatLocaleString(read_info->filename,MaxTextExtent,
+              "jpeg:%s",image_info->filename);
+            tile_image=BlobToImage(read_info,stream,count,exception);
+            pixels=(unsigned char *) RelinquishMagickMemory(pixels);
+            read_info=DestroyImageInfo(read_info);
           }
-        (void) fclose(file);
-        (void) close(unique_file);
-        tile_image=ReadImage(read_info,exception);
-        (void) RelinquishUniqueFileResource(filename);
-        read_info=DestroyImageInfo(read_info);
         if (tile_image == (Image *) NULL)
           continue;
         (void) FormatLocaleString(geometry,MaxTextExtent,"%.20gx%.20g",
@@ -1514,6 +1528,8 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
           Skip reserved.
         */
         length=ReadBlobMSBShort(image);
+        if ((MagickSizeType) length > GetBlobSize(image))
+          ThrowPICTException(CorruptImageError,"InsufficientImageDataInFile");
         for (i=0; i < (ssize_t) length; i++)
           if (ReadBlobByte(image) == EOF)
             break;
@@ -1525,6 +1541,8 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
           Skip reserved.
         */
         length=(size_t) ((code >> 7) & 0xff);
+        if ((MagickSizeType) length > GetBlobSize(image))
+          ThrowPICTException(CorruptImageError,"InsufficientImageDataInFile");
         for (i=0; i < (ssize_t) length; i++)
           if (ReadBlobByte(image) == EOF)
             break;
@@ -1571,7 +1589,7 @@ ModuleExport size_t RegisterPICTImage(void)
   entry->seekable_stream=MagickTrue;
   entry->description=ConstantString("Apple Macintosh QuickDraw/PICT");
   entry->magick=(IsImageFormatHandler *) IsPICT;
-  entry->module=ConstantString("PICT");
+  entry->magick_module=ConstantString("PICT");
   (void) RegisterMagickInfo(entry);
   entry=SetMagickInfo("PICT");
   entry->decoder=(DecodeImageHandler *) ReadPICTImage;
@@ -1580,7 +1598,7 @@ ModuleExport size_t RegisterPICTImage(void)
   entry->seekable_stream=MagickTrue;
   entry->description=ConstantString("Apple Macintosh QuickDraw/PICT");
   entry->magick=(IsImageFormatHandler *) IsPICT;
-  entry->module=ConstantString("PICT");
+  entry->magick_module=ConstantString("PICT");
   (void) RegisterMagickInfo(entry);
   return(MagickImageCoderSignature);
 }
@@ -1746,10 +1764,19 @@ static MagickBooleanType WritePICTImage(const ImageInfo *image_info,
   pixmap.table=0;
   pixmap.reserved=0;
   transfer_mode=0;
-  x_resolution=image->x_resolution != 0.0 ? image->x_resolution :
-    DefaultResolution;
-  y_resolution=image->y_resolution != 0.0 ? image->y_resolution :
-    DefaultResolution;
+  x_resolution=0.0;
+  y_resolution=0.0;
+  if ((image->x_resolution > MagickEpsilon) &&
+      (image->y_resolution > MagickEpsilon))
+    {
+      x_resolution=image->x_resolution;
+      y_resolution=image->y_resolution;
+      if (image->units == PixelsPerCentimeterResolution)
+        {
+          x_resolution*=2.54;
+          y_resolution*=2.54;
+        }
+    }
   storage_class=image->storage_class;
   if (image_info->compression == JPEGCompression)
     storage_class=DirectClass;
@@ -1768,9 +1795,12 @@ static MagickBooleanType WritePICTImage(const ImageInfo *image_info,
   bytes_per_line=image->columns;
   if (storage_class == DirectClass)
     bytes_per_line*=image->matte != MagickFalse ? 4 : 3;
+  if ((bytes_per_line == 0) || (bytes_per_line > 0x7FFFU) ||
+      ((row_bytes+MaxCount*2U) >= 0x7FFFU))
+    ThrowWriterException(ImageError,"WidthOrHeightExceedsLimit");
   buffer=(unsigned char *) AcquireQuantumMemory(PictInfoSize,sizeof(*buffer));
   packed_scanline=(unsigned char *) AcquireQuantumMemory((size_t)
-   (row_bytes+MaxCount),sizeof(*packed_scanline));
+   (row_bytes+2*MaxCount),sizeof(*packed_scanline));
   scanline=(unsigned char *) AcquireQuantumMemory(row_bytes,sizeof(*scanline));
   if ((buffer == (unsigned char *) NULL) ||
       (packed_scanline == (unsigned char *) NULL) ||
@@ -1786,7 +1816,8 @@ static MagickBooleanType WritePICTImage(const ImageInfo *image_info,
       ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
     }
   (void) memset(scanline,0,row_bytes);
-  (void) memset(packed_scanline,0,(size_t) (row_bytes+MaxCount));
+  (void) memset(packed_scanline,0,(size_t) (row_bytes+2*MaxCount)*
+    sizeof(*packed_scanline));
   /*
     Write header, header size, size bounding box, version, and reserved.
   */
@@ -1914,7 +1945,7 @@ static MagickBooleanType WritePICTImage(const ImageInfo *image_info,
       (void) WriteBlobMSBShort(image,0x0000);
       (void) WriteBlobMSBShort(image,(unsigned short) y_resolution);
       (void) WriteBlobMSBShort(image,0x0000);
-      (void) WriteBlobMSBLong(image,length);
+      (void) WriteBlobMSBLong(image,(unsigned int) length);
       (void) WriteBlobMSBShort(image,0x0001);
       (void) WriteBlobMSBLong(image,0x0B466F74U);
       (void) WriteBlobMSBLong(image,0x6F202D20U);
