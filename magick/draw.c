@@ -3800,6 +3800,7 @@ static MagickBooleanType RenderMVGContent(Image *image,
               }
             break;
           }
+        status=MagickFalse;
         break;
       }
       case 'v':
@@ -4033,6 +4034,13 @@ static MagickBooleanType RenderMVGContent(Image *image,
         beta=bounds.y2-bounds.y1;
         radius=hypot(alpha,beta);
         coordinates=2.0*(ceil(MagickPI*radius))+6.0*BezierQuantum+360.0;
+        if (coordinates > (107*BezierQuantum))
+          {
+            (void) ThrowMagickException(&image->exception,GetMagickModule(),
+              DrawError,"TooManyBezierCoordinates","`%s'",token);
+            status=MagickFalse;
+            break;
+          }
         break;
       }
       default:
@@ -4076,11 +4084,21 @@ static MagickBooleanType RenderMVGContent(Image *image,
       }
       case LinePrimitive:
       {
+        double
+          dx,
+          dy,
+          maximum_length;
+
         if (primitive_info[j].coordinates != 2)
           {
             status=MagickFalse;
             break;
           }
+        dx=primitive_info[i].point.x-primitive_info[i-1].point.x;
+        dy=primitive_info[i].point.y-primitive_info[i-1].point.y;
+        maximum_length=hypot(dx,dy);
+        if (maximum_length > (MaxBezierCoordinates/100.0))
+          ThrowPointExpectedException(image,keyword);
         status&=TraceLine(primitive_info+j,primitive_info[j].point,
           primitive_info[j+1].point);
         i=(ssize_t) (j+primitive_info[j].coordinates);
@@ -4923,8 +4941,8 @@ RestoreMSCWarning
         draw_info->fill_rule,x,y,&stroke_opacity);
       if (draw_info->stroke_antialias == MagickFalse)
         {
-          fill_opacity=fill_opacity > 0.25 ? 1.0 : 0.0;
-          stroke_opacity=stroke_opacity > 0.25 ? 1.0 : 0.0;
+          fill_opacity=fill_opacity > 0.5 ? 1.0 : 0.0;
+          stroke_opacity=stroke_opacity > 0.5 ? 1.0 : 0.0;
         }
       (void) GetFillColor(draw_info,x-start_x,y-start_y,&fill_color);
       fill_opacity=(double) (QuantumRange-fill_opacity*(QuantumRange-

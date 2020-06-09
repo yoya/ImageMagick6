@@ -695,7 +695,7 @@ MagickPrivate char *FileToXML(const char *filename,const size_t extent)
       (void) lseek(file,0,SEEK_SET);
       for (i=0; i < length; i+=count)
       {
-        count=read(file,xml+i,(size_t) MagickMin(length-i,SSIZE_MAX));
+        count=read(file,xml+i,(size_t) MagickMin(length-i,(size_t) SSIZE_MAX));
         if (count <= 0)
           {
             count=0;
@@ -1509,7 +1509,7 @@ static char *ParseEntities(char *xml,char **entities,int state)
                   }
                 if (entity != (char *) NULL)
                   (void) memmove(xml+length,entity+1,strlen(entity));
-                (void) strncpy(xml,entities[i],length);
+                (void) memcpy(xml,entities[i],length);
               }
         }
       else

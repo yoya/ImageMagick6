@@ -1467,9 +1467,9 @@ static MagickBooleanType RenderFreetype(Image *image,const DrawInfo *draw_info,
   metrics->bounds.x2=metrics->ascent+metrics->descent;
   metrics->bounds.y2=metrics->ascent+metrics->descent;
   metrics->underline_position=face->underline_position*
-    (metrics->pixels_per_em.x/face->units_per_EM);
+    (metrics->pixels_per_em.x*PerceptibleReciprocal(face->units_per_EM));
   metrics->underline_thickness=face->underline_thickness*
-    (metrics->pixels_per_em.x/face->units_per_EM);
+    (metrics->pixels_per_em.x*PerceptibleReciprocal(face->units_per_EM));
   first_glyph_id=0;
   FT_Get_First_Char(face,&first_glyph_id);
   if ((draw_info->text == (char *) NULL) || (*draw_info->text == '\0') ||
@@ -1617,7 +1617,7 @@ static MagickBooleanType RenderFreetype(Image *image,const DrawInfo *draw_info,
     bitmap=(FT_BitmapGlyph) glyph.image;
     point.x=offset->x+bitmap->left;
     if (bitmap->bitmap.pixel_mode == ft_pixel_mode_mono)
-      point.x=offset->x+(origin.x >> 6);
+      point.x+=(origin.x/64.0);
     point.y=offset->y-bitmap->top;
     if (draw_info->render != MagickFalse)
       {
@@ -1678,11 +1678,10 @@ static MagickBooleanType RenderFreetype(Image *image,const DrawInfo *draw_info,
                 bitmap->bitmap.width,1,exception);
               active=q != (PixelPacket *) NULL ? MagickTrue : MagickFalse;
             }
-          n=y*bitmap->bitmap.pitch-1;
-          for (x=0; x < (ssize_t) bitmap->bitmap.width; x++)
+          n=y*bitmap->bitmap.pitch;
+          for (x=0; x < (ssize_t) bitmap->bitmap.width; x++, n++)
           {
-            n++;
-            x_offset++;
+            x_offset=(ssize_t) ceil(point.x+x-0.5);
             if ((x_offset < 0) || (x_offset >= (ssize_t) image->columns))
               {
                 if (q != (PixelPacket *) NULL)
@@ -1690,12 +1689,16 @@ static MagickBooleanType RenderFreetype(Image *image,const DrawInfo *draw_info,
                 continue;
               }
             fill_opacity=1.0;
-            if (bitmap->bitmap.pixel_mode == ft_pixel_mode_grays)
-              fill_opacity=(MagickRealType) (p[n])/(bitmap->bitmap.num_grays-1);
-            else
-              if (bitmap->bitmap.pixel_mode == ft_pixel_mode_mono)
-                fill_opacity=((p[(x >> 3)+y*bitmap->bitmap.pitch] &
-                  (1 << (~x & 0x07)))) == 0 ? 0.0 : 1.0;
+            if (bitmap->bitmap.buffer != (unsigned char *) NULL)
+              {
+                if (bitmap->bitmap.pixel_mode == ft_pixel_mode_grays)
+                  fill_opacity=(MagickRealType) (p[n])/(
+                    bitmap->bitmap.num_grays-1);
+                else
+                  if (bitmap->bitmap.pixel_mode == ft_pixel_mode_mono)
+                    fill_opacity=((p[(x >> 3)+y*bitmap->bitmap.pitch] &
+                      (1 << (~x & 0x07)))) == 0 ? 0.0 : 1.0;
+              }
             if (draw_info->text_antialias == MagickFalse)
               fill_opacity=fill_opacity >= 0.5 ? 1.0 : 0.0;
             if (active == MagickFalse)
@@ -1754,15 +1757,11 @@ static MagickBooleanType RenderFreetype(Image *image,const DrawInfo *draw_info,
         (IsUTFSpace(GetUTFCode(p+grapheme[i].cluster)) != MagickFalse) &&
         (IsUTFSpace(code) == MagickFalse))
       origin.x+=(FT_Pos) (64.0*draw_info->interword_spacing);
-    else if (i == last_character)
-      {
-        if (bounds.xMax == 0)
-          origin.x+=(FT_Pos) grapheme[i].x_advance;
-        else
-          origin.x+=(FT_Pos) bounds.xMax;
-      }
     else
-      origin.x+=(FT_Pos) grapheme[i].x_advance;
+      if (i == last_character)
+        origin.x+=MagickMax((FT_Pos) grapheme[i].x_advance,bounds.xMax);
+      else
+        origin.x+=(FT_Pos) grapheme[i].x_advance;
     metrics->origin.x=(double) origin.x;
     metrics->origin.y=(double) origin.y;
     if (metrics->origin.x > metrics->width)

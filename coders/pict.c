@@ -466,6 +466,7 @@ static unsigned char *DecodeImage(Image *blob,Image *image,
       return((unsigned char *) NULL);
     }
   (void) memset(scanline,0,2*row_bytes*sizeof(*scanline));
+  (void) memset(unpack_buffer,0,sizeof(unpack_buffer));
   status=MagickTrue;
   if (bytes_per_line < 8)
     {
@@ -1182,6 +1183,7 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
               (size_t) (frame.bottom-frame.top),MagickTrue,exception);
             if (tile_image == (Image *) NULL)
               ThrowPICTException(CorruptImageError,"ImproperImageHeader");
+            status=ResetImagePixels(tile_image,exception);
             if ((code == 0x9a) || (code == 0x9b) ||
                 ((bytes_per_line & 0x8000) != 0))
               {

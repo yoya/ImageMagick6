@@ -1424,11 +1424,11 @@ RestoreMSCWarning
 #endif
     if ((photometric == PHOTOMETRIC_MINISBLACK) ||
         (photometric == PHOTOMETRIC_MINISWHITE))
-      SetImageColorspace(image,GRAYColorspace);
+      image->colorspace=GRAYColorspace;
     if (photometric == PHOTOMETRIC_SEPARATED)
-      SetImageColorspace(image,CMYKColorspace);
+      image->colorspace=CMYKColorspace;
     if (photometric == PHOTOMETRIC_CIELAB)
-      SetImageColorspace(image,LabColorspace);
+      image->colorspace=LabColorspace;
     status=TIFFGetProfiles(tiff,image);
     if (status == MagickFalse)
       {
@@ -1620,7 +1620,8 @@ RestoreMSCWarning
         InheritException(exception,&image->exception);
         return(DestroyImageList(image));
       }
-    status=ResetImagePixels(image,exception);
+    status=SetImageColorspace(image,image->colorspace);
+    status&=ResetImagePixels(image,exception);
     if (status == MagickFalse)
       {
         TIFFClose(tiff);
@@ -1835,7 +1836,12 @@ RestoreMSCWarning
         /*
           Convert stripped TIFF image.
         */
-        extent=TIFFStripSize(tiff)+sizeof(uint32);
+        extent=TIFFStripSize(tiff);
+#if defined(TIFF_VERSION_BIG)
+        extent+=image->columns*sizeof(uint64);
+#else
+        extent+=image->columns*sizeof(uint32);
+#endif
         strip_pixels=(unsigned char *) AcquireQuantumMemory(extent,
           sizeof(*strip_pixels));
         if (strip_pixels == (unsigned char *) NULL)
@@ -1931,12 +1937,17 @@ RestoreMSCWarning
         number_pixels=(MagickSizeType) columns*rows;
         if (HeapOverflowSanityCheck(rows,sizeof(*tile_pixels)) != MagickFalse)
           ThrowTIFFException(ResourceLimitError,"MemoryAllocationFailed");
-        extent=TIFFTileSize(tiff)+sizeof(uint32);
+        extent=TIFFTileSize(tiff);
+#if defined(TIFF_VERSION_BIG)
+        extent+=columns*sizeof(uint64);
+#else
+        extent+=columns*sizeof(uint32);
+#endif
         tile_pixels=(unsigned char *) AcquireQuantumMemory(extent,
           sizeof(*tile_pixels));
         if (tile_pixels == (unsigned char *) NULL)
           ThrowTIFFException(ResourceLimitError,"MemoryAllocationFailed");
-        (void) memset(tile_pixels,0,TIFFTileSize(tiff)*sizeof(*tile_pixels));
+        (void) memset(tile_pixels,0,extent*sizeof(*tile_pixels));
         for (i=0; i < (ssize_t) samples_per_pixel; i++)
         {
           switch (i)
@@ -3246,8 +3257,13 @@ static MagickBooleanType WriteTIFFImage(const ImageInfo *image_info,
       case Group4Compression:
       {
         if (IsMonochromeImage(image,&image->exception) == MagickFalse)
-          (void) SetImageType(image,BilevelType);
-        (void) SetImageDepth(image,1);
+          {
+            if (IsGrayImage(image,&image->exception) == MagickFalse)
+              (void) SetImageType(image,BilevelType);
+            else
+              (void) SetImageDepth(image,1);
+          }
+        image->depth=1;
         break;
       }
       case JPEGCompression:

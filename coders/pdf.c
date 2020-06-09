@@ -1319,9 +1319,19 @@ RestoreMSCWarning
       version=(size_t) MagickMax(version,4);
   if (LocaleCompare(image_info->magick,"PDFA") == 0)
     version=(size_t) MagickMax(version,6);
-  profile=GetImageProfile(image,"icc");
-  if (profile != (StringInfo *) NULL)
-    version=(size_t) MagickMax(version,7);
+  for (next=image; next != (Image *) NULL; next=GetNextImageInList(next))
+  {
+    (void) SetImageGray(image,&image->exception);
+    profile=GetImageProfile(next,"icc");
+    if (profile != (StringInfo *) NULL)
+      {
+        (void) SetImageStorageClass(next,DirectClass);
+        version=(size_t) MagickMax(version,7);
+      }
+    if ((next->colorspace != CMYKColorspace) &&
+        (IssRGBCompatibleColorspace(next->colorspace) == MagickFalse))
+      (void) TransformImageColorspace(next,sRGBColorspace);
+  }
   (void) FormatLocaleString(buffer,MaxTextExtent,"%%PDF-1.%.20g \n",(double)
     version);
   (void) WriteBlobString(image,buffer);
@@ -1458,7 +1468,7 @@ RestoreMSCWarning
       has_icc_profile;
 
     profile=GetImageProfile(image,"icc");
-    has_icc_profile=(profile != (StringInfo *) NULL) ? MagickTrue : MagickFalse;
+    has_icc_profile=profile != (StringInfo *) NULL ? MagickTrue : MagickFalse;
     compression=image->compression;
     if (image_info->compression != UndefinedCompression)
       compression=image_info->compression;
@@ -2194,15 +2204,14 @@ RestoreMSCWarning
             device="DeviceRGB";
             channels=3;
           }
-    profile=GetImageProfile(image,"icc");
-    if ((profile == (StringInfo *) NULL) || (channels == 0))
+    if (has_icc_profile == MagickFalse)
       {
         if (channels != 0)
           (void) FormatLocaleString(buffer,MaxTextExtent,"/%s\n",device);
         else
           (void) FormatLocaleString(buffer,MaxTextExtent,
             "[ /Indexed /%s %.20g %.20g 0 R ]\n",device,(double) image->colors-
-            1,(double) object+3);
+            1,(double) object+(has_icc_profile ? 4 : 3));
         (void) WriteBlobString(image,buffer);
       }
     else

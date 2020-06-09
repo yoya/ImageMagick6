@@ -98,6 +98,7 @@ static Image *ReadCAPTIONImage(const ImageInfo *image_info,
   char
     *caption,
     geometry[MaxTextExtent],
+    lines[MaxTextExtent],
     *text;
 
   const char
@@ -239,7 +240,8 @@ static Image *ReadCAPTIONImage(const ImageInfo *image_info,
         if (status == MagickFalse)
           break;
         width=(size_t) floor(metrics.width+draw_info->stroke_width+0.5);
-        height=(size_t) floor(metrics.height+draw_info->stroke_width+0.5);
+        height=(size_t) floor(metrics.height+draw_info->interline_spacing+
+          draw_info->stroke_width+0.5);
         if ((image->columns != 0) && (image->rows != 0))
           {
             if ((width >= image->columns) && (height >= image->rows))
@@ -266,7 +268,8 @@ static Image *ReadCAPTIONImage(const ImageInfo *image_info,
         if (status == MagickFalse)
           break;
         width=(size_t) floor(metrics.width+draw_info->stroke_width+0.5);
-        height=(size_t) floor(metrics.height+draw_info->stroke_width+0.5);
+        height=(size_t) floor(metrics.height+draw_info->interline_spacing+
+          draw_info->stroke_width+0.5);
         if ((image->columns != 0) && (image->rows != 0))
           {
             if ((width < image->columns) && (height < image->rows))
@@ -304,6 +307,8 @@ static Image *ReadCAPTIONImage(const ImageInfo *image_info,
         draw_info->pointsize);
       (void) SetImageProperty(image,"caption:pointsize",pointsize);
     }
+  (void) FormatLocaleString(lines,MaxTextExtent,"%.20g",(double) (i+1));
+  (void) SetImageProperty(image,"caption:lines",lines);
   draw_info=DestroyDrawInfo(draw_info);
   if (status == MagickFalse)
     {

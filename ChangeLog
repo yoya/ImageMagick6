@@ -1,9 +1,88 @@
-2020-04-07  6.9.11-7 Cristy  <quetzlzacatenango@image...>
-  * Release ImageMagick version 6.9.11-7, GIT revision 15...
+2020-06-08  6.9.11-18 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 6.9.11-18, GIT revision 15667:842c9ade8:20200608
+
+2020-06-08  6.9.11-18 Cristy  <quetzlzacatenango@image...>
+  * Colorspace change will remove ICC profile (reference
+    https://github.com/ImageMagick/ImageMagick6/issues/82).
+
+2020-06-07  6.9.11-17 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 6.9.11-17, GIT revision 15651:ff95d16:20200607
+
+2020-06-03  6.9.11-17 Cristy  <quetzlzacatenango@image...>
+  * Free up memory after a ICC profile is removed.
+
+2020-05-31  6.9.11-16 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 6.9.11-16, GIT revision 15639:38d3390:20200531
+
+2020-05-31  6.9.11-16 Cristy  <quetzlzacatenango@image...>
+  * Fix PDF XREF directory for image sequences with and without ICC profiles.
+
+2020-05-26  6.9.11-15 Cristy  <quetzlzacatenango@image...>
+  * CCL area threshold not working correctly.
+  * Don't write a ICC profile to PDF if the image is gray (reference
+    https://github.com/ImageMagick/ImageMagick/issues/2070).
+
+2020-05-22  6.9.11-14 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 6.9.11-14, GIT revision 15618:471a07315:20200522
+
+2020-05-22  6.9.11-14 Cristy  <quetzlzacatenango@image...>
+  * Errant warning when reading a profile file (reference
+    https://github.com/ImageMagick/ImageMagick/issues/2030).
+  * Fix one off error on PDF object for images with ICC profile.
+
+2020-05-17  6.9.11-13 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 6.9.11-13, GIT revision 15610:9445760:20200517.
+
+2020-05-17  6.9.11-13 Cristy  <quetzlzacatenango@image...>
+  * Remove errant debugging statement in SVG coder.
+
+2020-05-15  6.9.11-12 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 6.9.11-12, GIT revision 15602:96db62d:20200515.
+
+2020-05-12  6.9.11-12 Cristy  <quetzlzacatenango@image...>
+  * Black artefacts during quantization (reference
+    https://github.com/ImageMagick/ImageMagick/discussions/2007#discussioncomment-13546).
+
+2020-04-08  6.9.11-11 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 6.9.11-11, GIT revision 15592:6c1c1a9:20200508
+
+2020-04-28  6.9.11-11 Cristy  <quetzlzacatenango@image...>
+  * Disable "random" OpenCL kernel.  Previously the work load was distributed
+    but each started with the same random seed.
+  * Enable threaded PNG coder.
+
+2020-04-27  6.9.11-10 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 6.9.11-10, GIT revision 15574:867252a:20200427
+
+2020-04-27  6.9.11-10 Cristy  <quetzlzacatenango@image...>
+  * Correction to allocate a colormap of the maximum colors when color
+    reducing an image sequence.
+  * Write to stdout for mp4:-.
+
+2020-04-26  6.9.11-9 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 6.9.11-9, GIT revision 15563:7e4286f:20200426.
+
+2020-04-25  6.9.11-9 Cristy  <quetzlzacatenango@image...>
+  * Allocate a colormap of the maximum colors when color reducing an image
+    sequence.
+  * Label was not centered properly (reference
+    https://github.com/ImageMagick/ImageMagick/issues/1879).
+
+2020-04-24  6.9.11-8 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 6.9.11-8, GIT revision 15554:1ab590d:20200424.
+
+2020-04-23  6.9.11-8 Cristy  <quetzlzacatenango@image...>
+  * Some configure --with-method-prefix methods were missing (reference
+    https://github.com/ImageMagick/ImageMagick/issues/1912).
+
+2020-04-20  6.9.11-7 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 6.9.11-7, GIT revision 15549:7b11069:20200420.
 
 2020-04-07  6.9.11-7 Cristy  <quetzlzacatenango@image...>
   * Fix erroneous "insufficient image data" exception (reference
     https://github.com/ImageMagick/ImageMagick/issues/1883).
+  * Fix an unconditional jump for the XPM coder (reference
+    https://github.com/ImageMagick/ImageMagick/issues/1895).
 
 2020-04-06  6.9.11-6 Cristy  <quetzlzacatenango@image...>
   * Release ImageMagick version 6.9.11-6, GIT revision 15539:e9e105c:20200406.

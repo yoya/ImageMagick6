@@ -1446,7 +1446,7 @@ static MagickBooleanType GetEXIFProperty(const Image *image,
           offset=(ssize_t) ReadPropertySignedLong(endian,q+8);
           if ((offset < 0) || (size_t) offset >= length)
             continue;
-          if ((ssize_t) (offset+number_bytes) < offset)
+          if ((offset+number_bytes) < (ssize_t) offset)
             continue;  /* prevent overflow */
           if ((size_t) (offset+number_bytes) > length)
             continue;
@@ -2345,11 +2345,8 @@ MagickExport const char *GetImageProperty(const Image *image,
           if (status != MagickFalse)
             {
               char
-                hex[MaxTextExtent],
-                name[MaxTextExtent];
+                hex[MaxTextExtent];
 
-              (void) QueryMagickColorname(image,&pixel,SVGCompliance,name,
-                exception);
               GetColorTuple(&pixel,MagickTrue,hex);
               (void) SetImageProperty((Image *) image,property,hex+1);
             }
@@ -2407,8 +2404,18 @@ MagickExport const char *GetImageProperty(const Image *image,
               char
                 name[MaxTextExtent];
 
-              (void) QueryMagickColorname(image,&pixel,SVGCompliance,name,
-                exception);
+              const char
+                *value;
+
+              GetColorTuple(&pixel,MagickFalse,name);
+              value=GetImageArtifact(image,"pixel:compliance");
+              if (value != (char *) NULL)
+                {
+                  ComplianceType compliance=(ComplianceType) ParseCommandOption(
+                    MagickComplianceOptions,MagickFalse,value);
+                  (void) QueryMagickColorname(image,&pixel,compliance,name,
+                    exception);
+                }
               (void) SetImageProperty((Image *) image,property,name);
             }
           break;
@@ -4403,7 +4410,10 @@ MagickExport MagickBooleanType SetImageProperty(Image *image,
           (void) SetImageInfo(image_info,1,exception);
           profile=FileToStringInfo(image_info->filename,~0UL,exception);
           if (profile != (StringInfo *) NULL)
-            status=SetImageProfile(image,image_info->magick,profile);
+            {
+              status=SetImageProfile(image,image_info->magick,profile);
+              profile=DestroyStringInfo(profile);
+            }
           image_info=DestroyImageInfo(image_info);
           break;
         }
